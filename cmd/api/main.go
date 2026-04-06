@@ -13,6 +13,6 @@ func main() {
 
 	db := database.NewConnection(cfg.DatabaseURL)
 
-	r := server.SetupRouter(db)
+	r := server.SetupRouter(db, cfg)
 	r.Run(":" + cfg.Port)
 }

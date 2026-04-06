@@ -15,26 +15,42 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-func (h *Handler) Login(c *gin.Context) {
-	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+type authRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
 
-	// bind do body
+func (h *Handler) Register(c *gin.Context) {
+	var req authRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err)
 		return
 	}
 
-	// chama service
+	user, err := h.service.Register(req.Email, req.Password)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err)
+		return
+	}
+
+	response.Success(c, http.StatusCreated, user)
+}
+
+func (h *Handler) Login(c *gin.Context) {
+	var req authRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err)
+		return
+	}
+
 	token, err := h.service.Login(req.Email, req.Password)
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, err)
 		return
 	}
 
-	// sucesso
 	response.Success(c, http.StatusOK, gin.H{
 		"token": token,
 	})

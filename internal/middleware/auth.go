@@ -8,30 +8,29 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("secret") // depois vamos jogar pra env
+func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
+	secret := []byte(jwtSecret)
 
-func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
 			c.Abort()
 			return
 		}
 
-		// espera: Bearer TOKEN
 		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 {
+		if len(parts) != 2 || parts[0] != "Bearer" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token format"})
 			c.Abort()
 			return
 		}
 
-		tokenString := parts[1]
-
-		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
+		token, err := jwt.Parse(parts[1], func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return secret, nil
 		})
 
 		if err != nil || !token.Valid {
@@ -40,7 +39,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// pegar user_id do token
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			c.Set("user_id", claims["user_id"])
 		}
