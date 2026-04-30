@@ -2,7 +2,6 @@ package member
 
 import (
 	"database/sql"
-	"log"
 	"strconv"
 )
 
@@ -56,7 +55,12 @@ func (r *Repository) Create(m Member) (Member, error) {
 
 func (r *Repository) Find(filters map[string]string, limit, offset int) ([]Member, error) {
 	query := `
-	SELECT id, name, email, phone, status, created_at, updated_at
+	SELECT id, name, email, phone, status,
+		member_since, baptized, baptism_date,
+		church_role, marital_status, origin_denomination,
+		membership_course_completed, membership_course_completed_at,
+		contacted, contacted_at,
+		created_at, updated_at, created_by
 	FROM members
 	WHERE 1=1
 	`
@@ -64,14 +68,12 @@ func (r *Repository) Find(filters map[string]string, limit, offset int) ([]Membe
 	args := []interface{}{}
 	argID := 1
 
-	// filtro por nome
 	if name, ok := filters["name"]; ok && name != "" {
 		query += " AND LOWER(name) LIKE '%' || LOWER($" + strconv.Itoa(argID) + ") || '%'"
 		args = append(args, name)
 		argID++
 	}
 
-	// filtro por status
 	if status, ok := filters["status"]; ok && status != "" {
 		query += " AND status = $" + strconv.Itoa(argID)
 		args = append(args, status)
@@ -80,12 +82,10 @@ func (r *Repository) Find(filters map[string]string, limit, offset int) ([]Membe
 
 	query += " ORDER BY id DESC"
 
-	// limit
 	query += " LIMIT $" + strconv.Itoa(argID)
 	args = append(args, limit)
 	argID++
 
-	// offset
 	query += " OFFSET $" + strconv.Itoa(argID)
 	args = append(args, offset)
 
@@ -106,14 +106,23 @@ func (r *Repository) Find(filters map[string]string, limit, offset int) ([]Membe
 			&m.Email,
 			&m.Phone,
 			&m.Status,
+			&m.MemberSince,
+			&m.Baptized,
+			&m.BaptismDate,
+			&m.ChurchRole,
+			&m.MaritalStatus,
+			&m.OriginDenomination,
+			&m.MembershipCourseCompleted,
+			&m.MembershipCourseCompletedAt,
+			&m.Contacted,
+			&m.ContactedAt,
 			&m.CreatedAt,
 			&m.UpdatedAt,
+			&m.CreatedBy,
 		)
 		if err != nil {
 			return nil, err
 		}
-
-		log.Println("member found:", m.ID)
 
 		result = append(result, m)
 	}
