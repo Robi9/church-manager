@@ -10,6 +10,7 @@ import (
 	"github.com/Robi9/church-manager/internal/config"
 	"github.com/Robi9/church-manager/internal/middleware"
 	"github.com/Robi9/church-manager/internal/modules/auth"
+	"github.com/Robi9/church-manager/internal/modules/dashboard"
 	"github.com/Robi9/church-manager/internal/modules/member"
 )
 
@@ -33,6 +34,10 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	authService := auth.NewService(authRepo, cfg.JWTSecret)
 	authHandler := auth.NewHandler(authService)
 
+	dashboardRepo := dashboard.NewRepository(db)
+	dashboardService := dashboard.NewService(dashboardRepo)
+	dashboardHandler := dashboard.NewHandler(dashboardService)
+
 	api := r.Group("/api")
 	{
 		members := api.Group("/members")
@@ -40,6 +45,15 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 		{
 			members.POST("", handler.Create)
 			members.GET("", handler.Find)
+			members.PUT("/:id", handler.Update)
+			members.DELETE("/:id", handler.Delete)
+			members.POST("/import", handler.Import)
+		}
+
+		dashboardGroup := api.Group("/dashboard")
+		dashboardGroup.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		{
+			dashboardGroup.GET("/stats", dashboardHandler.GetStats)
 		}
 	}
 

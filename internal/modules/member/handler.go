@@ -66,3 +66,74 @@ func (h *Handler) Find(c *gin.Context) {
 		"meta": meta,
 	})
 }
+
+func (h *Handler) Update(c *gin.Context) {
+	idParam := c.Param("id")
+
+	id, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, errors.New("invalid member id"))
+		return
+	}
+
+	var payload Member
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		response.Error(c, http.StatusBadRequest, err)
+		return
+	}
+
+	result, err := h.service.Update(id, payload)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, result)
+}
+
+func (h *Handler) Delete(c *gin.Context) {
+	idParam := c.Param("id")
+
+	id, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, errors.New("invalid member id"))
+		return
+	}
+
+	err = h.service.SoftDelete(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, gin.H{
+		"message": "member deactivated successfully",
+	})
+}
+
+func (h *Handler) Import(c *gin.Context) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, errors.New("file is required"))
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err)
+		return
+	}
+	defer file.Close()
+
+	userIDValue, _ := c.Get("user_id")
+	userID := int64(userIDValue.(float64))
+
+	result, err := h.service.ImportCSV(file, userID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, result)
+}
