@@ -137,3 +137,17 @@ func (h *Handler) Import(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, result)
 }
+
+func (h *Handler) DownloadTemplate(c *gin.Context) {
+	c.Header("Content-Type", "text/csv")
+	c.Header(
+		"Content-Disposition",
+		`attachment; filename="members_template.csv"`,
+	)
+
+	csvContent := `name,email,phone,status,member_since,baptized,baptism_date,church_role,marital_status,origin_denomination,membership_course_completed,membership_course_completed_at,contacted,contacted_at
+Maria,maria@email.com,88999999999,active,2024-01-01,true,2024-02-01,Líder,single,Batista,true,2024-02-15,true,2024-03-01
+`
+
+	c.String(http.StatusOK, csvContent)
+}
