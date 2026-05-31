@@ -45,10 +45,15 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 		{
 			members.POST("", handler.Create)
 			members.GET("", handler.Find)
+			members.GET("/:id", handler.GetByID)
 			members.PUT("/:id", handler.Update)
 			members.DELETE("/:id", handler.Delete)
 			members.POST("/import", handler.Import)
 			members.GET("/import/template", handler.DownloadTemplate)
+			members.GET(
+				"/import/errors/:jobID",
+				handler.DownloadImportErrors,
+			)
 		}
 
 		dashboardGroup := api.Group("/dashboard")

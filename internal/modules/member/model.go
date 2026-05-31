@@ -38,8 +38,12 @@ const (
 type MaritalStatus string
 
 const (
-	Single   MaritalStatus = "single"
-	Married  MaritalStatus = "married"
-	Divorced MaritalStatus = "divorced"
-	Widowed  MaritalStatus = "widowed"
+	Single     MaritalStatus = "single"
+	Married    MaritalStatus = "married"
+	Divorced   MaritalStatus = "divorced"
+	Widowed    MaritalStatus = "widowed"
+	Solteiro   MaritalStatus = "solteiro"
+	Casado     MaritalStatus = "casado"
+	Divorciado MaritalStatus = "divorciado"
+	Viúvo      MaritalStatus = "viúvo"
 )

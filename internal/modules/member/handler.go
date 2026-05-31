@@ -1,6 +1,7 @@
 package member
 
 import (
+	"encoding/csv"
 	"errors"
 	"net/http"
 	"strconv"
@@ -150,4 +151,69 @@ Maria,maria@email.com,88999999999,active,2024-01-01,true,2024-02-01,Líder,singl
 `
 
 	c.String(http.StatusOK, csvContent)
+}
+
+func (h *Handler) DownloadImportErrors(c *gin.Context) {
+	jobID := c.Param("jobID")
+
+	job, ok := GetImportJob(jobID)
+	if !ok {
+		c.JSON(404, gin.H{
+			"error": "import job not found",
+		})
+		return
+	}
+
+	c.Header(
+		"Content-Type",
+		"text/csv",
+	)
+
+	c.Header(
+		"Content-Disposition",
+		"attachment; filename=import_errors.csv",
+	)
+
+	writer := csv.NewWriter(c.Writer)
+	defer writer.Flush()
+
+	headers := append(job.Headers, "error")
+
+	err := writer.Write(headers)
+	if err != nil {
+		return
+	}
+
+	for _, errRow := range job.ErrorRows {
+		row := normalizeRow(
+			errRow.Data,
+			len(job.Headers),
+		)
+
+		row = append(
+			row,
+			errRow.Error,
+		)
+
+		err := writer.Write(row)
+		if err != nil {
+			return
+		}
+	}
+}
+
+func (h *Handler) GetByID(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, errors.New("invalid id"))
+		return
+	}
+
+	member, err := h.service.GetByID(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, errors.New("member not found"))
+		return
+	}
+
+	response.Success(c, http.StatusOK, member)
 }

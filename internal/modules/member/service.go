@@ -4,8 +4,11 @@ import (
 	"encoding/csv"
 	"errors"
 	"io"
+	"net/mail"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -139,8 +142,19 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 		return ImportResult{}, err
 	}
 
+	var headers []string
+
+	if len(rows) > 0 {
+		headers = rows[0]
+	}
+
 	var members []Member
 	result := ImportResult{}
+
+	now := time.Now()
+
+	seenEmails := make(map[string]bool)
+	seenPhones := make(map[string]bool)
 
 	for index, row := range rows {
 		if index == 0 {
@@ -167,11 +181,7 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 		*/
 
 		if len(row) < 14 {
-			result.Failed++
-			result.Errors = append(
-				result.Errors,
-				"invalid row structure",
-			)
+			addImportError(&result, index+1, row, "invalid row structure")
 			continue
 		}
 
@@ -184,6 +194,12 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 		membershipCourseCompletedAt := parseOptionalDate(row[11])
 		contactedAt := parseOptionalDate(row[13])
 
+		maritalStatus := MaritalStatus(row[8])
+		if !isValidMaritalStatus(maritalStatus) {
+			addImportError(&result, index+1, row, "invalid marital status: "+row[8])
+			continue
+		}
+
 		member := Member{
 			Name:                        row[0],
 			Email:                       row[1],
@@ -193,24 +209,26 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 			Baptized:                    baptized,
 			BaptismDate:                 baptismDate,
 			ChurchRole:                  row[7],
-			MaritalStatus:               MaritalStatus(row[8]),
+			MaritalStatus:               maritalStatus,
 			OriginDenomination:          row[9],
 			MembershipCourseCompleted:   membershipCourseCompleted,
 			MembershipCourseCompletedAt: membershipCourseCompletedAt,
 			Contacted:                   contacted,
 			ContactedAt:                 contactedAt,
 			CreatedBy:                   userID,
-			CreatedAt:                   time.Now(),
-			UpdatedAt:                   time.Now(),
+			CreatedAt:                   now,
+			UpdatedAt:                   now,
 		}
 
 		// minimum validation
 		if member.Name == "" {
-			result.Failed++
-			result.Errors = append(
-				result.Errors,
-				"name is required",
-			)
+			addImportError(&result, index+1, row, "name is required")
+			continue
+		}
+
+		_, err := mail.ParseAddress(member.Email)
+		if err != nil {
+			addImportError(&result, index+1, row, "invalid email: "+member.Email)
 			continue
 		}
 
@@ -220,14 +238,48 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 
 		if member.Status != Active && member.Status != Inactive {
 			result.Failed++
-			result.Errors = append(
-				result.Errors,
-				"invalid status for member: "+member.Name,
-			)
+			addImportError(&result, index+1, row, "invalid status for member: "+member.Name)
 			continue
 		}
 
+		if member.Email != "" {
+			if seenEmails[member.Email] {
+				addImportError(
+					&result,
+					index+1,
+					row,
+					"duplicate email in file",
+				)
+				continue
+			}
+
+			seenEmails[member.Email] = true
+		}
+
+		if member.Phone != "" {
+			if seenPhones[member.Phone] {
+				addImportError(&result, index+1, row, "duplicate phone in file")
+				continue
+			}
+			seenPhones[member.Phone] = true
+		}
+
 		members = append(members, member)
+	}
+
+	if result.Failed > 0 {
+		jobID := uuid.NewString()
+
+		job := ImportJob{
+			ID:        jobID,
+			CreatedAt: time.Now(),
+			Headers:   headers,
+			ErrorRows: result.Errors,
+		}
+
+		SaveImportJob(job)
+
+		result.JobID = jobID
 	}
 
 	if len(members) == 0 {
@@ -242,6 +294,15 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 	result.Imported = len(members)
 
 	return result, nil
+}
+
+func (s *Service) GetByID(id int64) (Member, error) {
+	member, err := s.repo.GetByID(id)
+	if err != nil {
+		return Member{}, errors.New("member not found")
+	}
+
+	return member, nil
 }
 
 func parseOptionalDate(value string) *time.Time {
@@ -268,4 +329,31 @@ func parseOptionalBool(value string) bool {
 	}
 
 	return parsed
+}
+
+func addImportError(
+	result *ImportResult,
+	rowNumber int,
+	row []string,
+	message string,
+) {
+	result.Failed++
+
+	result.Errors = append(
+		result.Errors,
+		ImportError{
+			Row:   rowNumber,
+			Error: message,
+			Data:  row,
+		},
+	)
+}
+
+func isValidMaritalStatus(status MaritalStatus) bool {
+	switch status {
+	case Single, Married, Divorced, Widowed, Solteiro, Casado, Divorciado, Viúvo:
+		return true
+	default:
+		return false
+	}
 }
