@@ -67,7 +67,7 @@ export default function ImportMembersPage() {
 
             const a = document.createElement("a");
             a.href = url;
-            a.download = "import-errors.csv";
+            a.download = "erros_importacao.csv";
 
             document.body.appendChild(a);
             a.click();
@@ -96,7 +96,7 @@ export default function ImportMembersPage() {
 
         const a = document.createElement("a");
         a.href = url;
-        a.download = "members-template.csv";
+        a.download = "modelo_membros.csv";
         a.click();
 
         window.URL.revokeObjectURL(url);

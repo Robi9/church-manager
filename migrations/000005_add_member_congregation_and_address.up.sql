@@ -1,0 +1,8 @@
+ALTER TABLE members
+    ADD COLUMN congregation TEXT NOT NULL DEFAULT '',
+    ADD COLUMN address TEXT NOT NULL DEFAULT '',
+    ADD COLUMN address_number TEXT NOT NULL DEFAULT '',
+    ADD COLUMN address_complement TEXT NOT NULL DEFAULT '',
+    ADD COLUMN neighborhood TEXT NOT NULL DEFAULT '',
+    ADD COLUMN city TEXT NOT NULL DEFAULT '',
+    ADD COLUMN state TEXT NOT NULL DEFAULT '';

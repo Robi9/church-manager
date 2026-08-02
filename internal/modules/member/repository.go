@@ -21,12 +21,13 @@ func (r *Repository) Create(m Member) (Member, error) {
 	INSERT INTO members (
 		name, email, phone, status,
 		member_since, baptized, baptism_date,
-		church_role, marital_status, origin_denomination,
+		church_role, marital_status, origin_denomination, congregation,
 		membership_course_completed, membership_course_completed_at,
 		contacted, contacted_at,
+		address, address_number, address_complement, neighborhood, city, state,
 		created_at, updated_at, created_by
 	)
-	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
 	RETURNING id
 	`
 
@@ -42,10 +43,17 @@ func (r *Repository) Create(m Member) (Member, error) {
 		m.ChurchRole,
 		m.MaritalStatus,
 		m.OriginDenomination,
+		m.Congregation,
 		m.MembershipCourseCompleted,
 		m.MembershipCourseCompletedAt,
 		m.Contacted,
 		m.ContactedAt,
+		m.Address,
+		m.AddressNumber,
+		m.AddressComplement,
+		m.Neighborhood,
+		m.City,
+		m.State,
 		m.CreatedAt,
 		m.UpdatedAt,
 		m.CreatedBy,
@@ -58,9 +66,10 @@ func (r *Repository) Find(filters map[string]string, limit, offset int) ([]Membe
 	query := `
 	SELECT id, name, email, phone, status,
 		member_since, baptized, baptism_date,
-		church_role, marital_status, origin_denomination,
+		church_role, marital_status, origin_denomination, congregation,
 		membership_course_completed, membership_course_completed_at,
 		contacted, contacted_at,
+		address, address_number, address_complement, neighborhood, city, state,
 		created_at, updated_at, created_by
 	FROM members
 	WHERE 1=1
@@ -113,10 +122,17 @@ func (r *Repository) Find(filters map[string]string, limit, offset int) ([]Membe
 			&m.ChurchRole,
 			&m.MaritalStatus,
 			&m.OriginDenomination,
+			&m.Congregation,
 			&m.MembershipCourseCompleted,
 			&m.MembershipCourseCompletedAt,
 			&m.Contacted,
 			&m.ContactedAt,
+			&m.Address,
+			&m.AddressNumber,
+			&m.AddressComplement,
+			&m.Neighborhood,
+			&m.City,
+			&m.State,
 			&m.CreatedAt,
 			&m.UpdatedAt,
 			&m.CreatedBy,
@@ -159,9 +175,10 @@ func (r *Repository) GetByID(id int64) (Member, error) {
 	query := `
 		SELECT id, name, email, phone, status,
 			member_since, baptized, baptism_date,
-			church_role, marital_status, origin_denomination,
+			church_role, marital_status, origin_denomination, congregation,
 			membership_course_completed, membership_course_completed_at,
 			contacted, contacted_at,
+			address, address_number, address_complement, neighborhood, city, state,
 			created_at, updated_at, created_by
 		FROM members
 		WHERE id = $1
@@ -179,10 +196,17 @@ func (r *Repository) GetByID(id int64) (Member, error) {
 		&member.ChurchRole,
 		&member.MaritalStatus,
 		&member.OriginDenomination,
+		&member.Congregation,
 		&member.MembershipCourseCompleted,
 		&member.MembershipCourseCompletedAt,
 		&member.Contacted,
 		&member.ContactedAt,
+		&member.Address,
+		&member.AddressNumber,
+		&member.AddressComplement,
+		&member.Neighborhood,
+		&member.City,
+		&member.State,
 		&member.CreatedAt,
 		&member.UpdatedAt,
 		&member.CreatedBy,
@@ -202,8 +226,15 @@ func (r *Repository) Update(m Member) (Member, error) {
 			church_role = $5,
 			marital_status = $6,
 			origin_denomination = $7,
-			updated_at = $8
-		WHERE id = $9
+			congregation = $8,
+			address = $9,
+			address_number = $10,
+			address_complement = $11,
+			neighborhood = $12,
+			city = $13,
+			state = $14,
+			updated_at = $15
+		WHERE id = $16
 		RETURNING id
 	`
 
@@ -216,6 +247,13 @@ func (r *Repository) Update(m Member) (Member, error) {
 		m.ChurchRole,
 		m.MaritalStatus,
 		m.OriginDenomination,
+		m.Congregation,
+		m.Address,
+		m.AddressNumber,
+		m.AddressComplement,
+		m.Neighborhood,
+		m.City,
+		m.State,
 		m.UpdatedAt,
 		m.ID,
 	).Scan(&m.ID)
@@ -254,12 +292,13 @@ func (r *Repository) CreateMany(members []Member) error {
 		INSERT INTO members (
 		name, email, phone, status,
 		member_since, baptized, baptism_date,
-		church_role, marital_status, origin_denomination,
+		church_role, marital_status, origin_denomination, congregation,
 		membership_course_completed, membership_course_completed_at,
 		contacted, contacted_at,
+		address, address_number, address_complement, neighborhood, city, state,
 		created_at, updated_at, created_by
 	)
-	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
 	RETURNING id
 	`
 
@@ -276,10 +315,17 @@ func (r *Repository) CreateMany(members []Member) error {
 			m.ChurchRole,
 			m.MaritalStatus,
 			m.OriginDenomination,
+			m.Congregation,
 			m.MembershipCourseCompleted,
 			m.MembershipCourseCompletedAt,
 			m.Contacted,
 			m.ContactedAt,
+			m.Address,
+			m.AddressNumber,
+			m.AddressComplement,
+			m.Neighborhood,
+			m.City,
+			m.State,
 			m.CreatedAt,
 			m.UpdatedAt,
 			m.CreatedBy,

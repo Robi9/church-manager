@@ -4,8 +4,8 @@ import (
 	"encoding/csv"
 	"errors"
 	"io"
-	"net/mail"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -153,7 +153,6 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 
 	now := time.Now()
 
-	seenEmails := make(map[string]bool)
 	seenPhones := make(map[string]bool)
 
 	for index, row := range rows {
@@ -162,59 +161,63 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 		}
 
 		/*
-			CSV expected:
+			CSV esperado:
 
-			name,
-			email,
-			phone,
-			status,
-			member_since,
-			baptized,
-			baptism_date,
-			church_role,
-			marital_status,
-			origin_denomination,
-			membership_course_completed,
-			membership_course_completed_at,
-			contacted,
-			contacted_at
+			Nome, Telefone, Status, Membro desde,
+			Batizado, Data do batismo, Cargo na igreja,
+			Estado civil, Congregação, Igreja de origem,
+			Fez o curso de membresia, Data do curso de membresia,
+			Contactado no WhatsApp, Data do contato,
+			Endereço, Número, Complemento, Bairro, Cidade, Estado
 		*/
 
-		if len(row) < 14 {
-			addImportError(&result, index+1, row, "invalid row structure")
+		if len(row) < 20 {
+			addImportError(&result, index+1, row, "estrutura da linha inválida")
 			continue
 		}
 
-		baptized := parseOptionalBool(row[5])
+		baptized := parseOptionalBool(row[4])
 		membershipCourseCompleted := parseOptionalBool(row[10])
 		contacted := parseOptionalBool(row[12])
 
-		memberSince := parseOptionalDate(row[4])
-		baptismDate := parseOptionalDate(row[6])
+		memberSince := parseOptionalDate(row[3])
+		baptismDate := parseOptionalDate(row[5])
 		membershipCourseCompletedAt := parseOptionalDate(row[11])
 		contactedAt := parseOptionalDate(row[13])
 
-		maritalStatus := MaritalStatus(row[8])
+		maritalStatus := normalizeMaritalStatus(row[7])
 		if !isValidMaritalStatus(maritalStatus) {
-			addImportError(&result, index+1, row, "invalid marital status: "+row[8])
+			addImportError(&result, index+1, row, "estado civil inválido: "+row[7])
+			continue
+		}
+
+		congregation, validCongregation := normalizeCongregation(row[8])
+		if !validCongregation {
+			addImportError(&result, index+1, row, "congregação inválida: "+row[8])
 			continue
 		}
 
 		member := Member{
 			Name:                        row[0],
-			Email:                       row[1],
-			Phone:                       row[2],
-			Status:                      Status(row[3]),
+			Phone:                       row[1],
+			Status:                      normalizeStatus(row[2]),
 			MemberSince:                 memberSince,
 			Baptized:                    baptized,
 			BaptismDate:                 baptismDate,
-			ChurchRole:                  row[7],
+			ChurchRole:                  row[6],
 			MaritalStatus:               maritalStatus,
 			OriginDenomination:          row[9],
+			Congregation:                congregation,
 			MembershipCourseCompleted:   membershipCourseCompleted,
 			MembershipCourseCompletedAt: membershipCourseCompletedAt,
 			Contacted:                   contacted,
 			ContactedAt:                 contactedAt,
+			Address:                     row[14],
+			AddressNumber:               row[15],
+			AddressComplement:           row[16],
+			Neighborhood:                row[17],
+			City:                        row[18],
+			State:                       row[19],
 			CreatedBy:                   userID,
 			CreatedAt:                   now,
 			UpdatedAt:                   now,
@@ -222,13 +225,7 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 
 		// minimum validation
 		if member.Name == "" {
-			addImportError(&result, index+1, row, "name is required")
-			continue
-		}
-
-		_, err := mail.ParseAddress(member.Email)
-		if err != nil {
-			addImportError(&result, index+1, row, "invalid email: "+member.Email)
+			addImportError(&result, index+1, row, "nome é obrigatório")
 			continue
 		}
 
@@ -237,28 +234,13 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 		}
 
 		if member.Status != Active && member.Status != Inactive {
-			result.Failed++
-			addImportError(&result, index+1, row, "invalid status for member: "+member.Name)
+			addImportError(&result, index+1, row, "status inválido para o membro: "+member.Name)
 			continue
-		}
-
-		if member.Email != "" {
-			if seenEmails[member.Email] {
-				addImportError(
-					&result,
-					index+1,
-					row,
-					"duplicate email in file",
-				)
-				continue
-			}
-
-			seenEmails[member.Email] = true
 		}
 
 		if member.Phone != "" {
 			if seenPhones[member.Phone] {
-				addImportError(&result, index+1, row, "duplicate phone in file")
+				addImportError(&result, index+1, row, "telefone duplicado no arquivo")
 				continue
 			}
 			seenPhones[member.Phone] = true
@@ -306,16 +288,19 @@ func (s *Service) GetByID(id int64) (Member, error) {
 }
 
 func parseOptionalDate(value string) *time.Time {
+	value = strings.TrimSpace(value)
 	if value == "" {
 		return nil
 	}
 
-	parsed, err := time.Parse("2006-01-02", value)
-	if err != nil {
-		return nil
+	for _, layout := range []string{"2006-01-02", "02/01/2006"} {
+		parsed, err := time.Parse(layout, value)
+		if err == nil {
+			return &parsed
+		}
 	}
 
-	return &parsed
+	return nil
 }
 
 func parseOptionalBool(value string) bool {
@@ -323,12 +308,68 @@ func parseOptionalBool(value string) bool {
 		return false
 	}
 
-	parsed, err := strconv.ParseBool(value)
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "sim" {
+		return true
+	}
+	if normalized == "não" || normalized == "nao" {
+		return false
+	}
+
+	parsed, err := strconv.ParseBool(normalized)
 	if err != nil {
 		return false
 	}
 
 	return parsed
+}
+
+func normalizeStatus(value string) Status {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "ativo", "active":
+		return Active
+	case "inativo", "inactive":
+		return Inactive
+	default:
+		return Status(value)
+	}
+}
+
+func normalizeMaritalStatus(value string) MaritalStatus {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "solteiro", "solteira", "single":
+		return Single
+	case "casado", "casada", "married":
+		return Married
+	case "divorciado", "divorciada", "divorced":
+		return Divorced
+	case "viúvo", "viúva", "viuvo", "viuva", "widowed":
+		return Widowed
+	default:
+		return MaritalStatus(value)
+	}
+}
+
+func normalizeCongregation(value string) (string, bool) {
+	congregations := []string{
+		"Sede",
+		"Várzea de Cima",
+		"Caraúno",
+		"Cohab",
+		"Quixadá",
+		"Fortaleza",
+		"Castelo",
+		"Conjunto Esperança",
+	}
+
+	value = strings.TrimSpace(value)
+	for _, congregation := range congregations {
+		if strings.EqualFold(value, congregation) {
+			return congregation, true
+		}
+	}
+
+	return value, false
 }
 
 func addImportError(

@@ -16,12 +16,20 @@ type Member struct {
 	ChurchRole         string        `json:"church_role"`
 	MaritalStatus      MaritalStatus `json:"marital_status"`
 	OriginDenomination string        `json:"origin_denomination"`
+	Congregation       string        `json:"congregation"`
 
 	MembershipCourseCompleted   bool       `json:"membership_course_completed"`
 	MembershipCourseCompletedAt *time.Time `json:"membership_course_completed_at,omitempty"`
 
 	Contacted   bool       `json:"contacted"`
 	ContactedAt *time.Time `json:"contacted_at,omitempty"`
+
+	Address           string `json:"address"`
+	AddressNumber     string `json:"address_number"`
+	AddressComplement string `json:"address_complement"`
+	Neighborhood      string `json:"neighborhood"`
+	City              string `json:"city"`
+	State             string `json:"state"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

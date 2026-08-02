@@ -143,11 +143,11 @@ func (h *Handler) DownloadTemplate(c *gin.Context) {
 	c.Header("Content-Type", "text/csv")
 	c.Header(
 		"Content-Disposition",
-		`attachment; filename="members_template.csv"`,
+		`attachment; filename="modelo_membros.csv"`,
 	)
 
-	csvContent := `name,email,phone,status,member_since,baptized,baptism_date,church_role,marital_status,origin_denomination,membership_course_completed,membership_course_completed_at,contacted,contacted_at
-Maria,maria@email.com,88999999999,active,2024-01-01,true,2024-02-01,Líder,single,Batista,true,2024-02-15,true,2024-03-01
+	csvContent := `Nome,Telefone,Status,Membro desde,Batizado,Data do batismo,Cargo na igreja,Estado civil,Congregação,Igreja de origem,Fez o curso de membresia,Data do curso de membresia,Contactado no WhatsApp,Data do contato,Endereço,Número,Complemento,Bairro,Cidade,Estado
+Maria,88999999999,Ativo,2024-01-01,Sim,2024-02-01,Líder,Solteiro,Sede,Batista,Sim,2024-02-15,Sim,2024-03-01,Rua das Flores,123,Apto 1,Centro,Fortaleza,CE
 `
 
 	c.String(http.StatusOK, csvContent)
@@ -177,7 +177,7 @@ func (h *Handler) DownloadImportErrors(c *gin.Context) {
 	writer := csv.NewWriter(c.Writer)
 	defer writer.Flush()
 
-	headers := append(job.Headers, "error")
+	headers := append(job.Headers, "erro")
 
 	err := writer.Write(headers)
 	if err != nil {
