@@ -37,8 +37,8 @@ import {
 interface Member {
   id: number;
   name: string;
-  email: string;
   phone: string;
+  congregation: string;
   status: string;
   member_since: string | null;
   baptized: boolean;
@@ -50,6 +50,12 @@ interface Member {
   membership_course_completed_at: string | null;
   contacted: boolean;
   contacted_at: string | null;
+  address: string;
+  address_number: string;
+  address_complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
   created_at: string;
   updated_at: string;
 }
@@ -209,16 +215,25 @@ export default function MembersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>Email</TableHead>
               <TableHead>Telefone</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Função</TableHead>
-              <TableHead>Estado civil</TableHead>
-              <TableHead className="text-center">Batizado</TableHead>
-              <TableHead className="text-center">Contatado</TableHead>
-              <TableHead className="text-center">Curso membresia</TableHead>
               <TableHead>Membro desde</TableHead>
-              <TableHead>Denominação de origem</TableHead>
+              <TableHead className="text-center">Batizado</TableHead>
+              <TableHead>Data do batismo</TableHead>
+              <TableHead>Cargo na igreja</TableHead>
+              <TableHead>Estado civil</TableHead>
+              <TableHead>Congregação</TableHead>
+              <TableHead>Igreja de origem</TableHead>
+              <TableHead className="text-center">Curso de membresia</TableHead>
+              <TableHead>Data do curso</TableHead>
+              <TableHead className="text-center">Contactado no WhatsApp</TableHead>
+              <TableHead>Data do contato</TableHead>
+              <TableHead>Endereço</TableHead>
+              <TableHead>Número</TableHead>
+              <TableHead>Complemento</TableHead>
+              <TableHead>Bairro</TableHead>
+              <TableHead>Cidade</TableHead>
+              <TableHead>Estado</TableHead>
               <TableHead className="text-right">
                 Ações
               </TableHead>
@@ -227,14 +242,14 @@ export default function MembersPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={12} className="h-24 text-center">
+                <TableCell colSpan={21} className="h-24 text-center">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : members.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={12}
+                  colSpan={21}
                   className="h-24 text-center text-muted-foreground"
                 >
                   Nenhum membro encontrado
@@ -252,9 +267,6 @@ export default function MembersPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {m.email || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
                     {m.phone || "—"}
                   </TableCell>
                   <TableCell>
@@ -265,25 +277,55 @@ export default function MembersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
+                    {formatDate(m.member_since)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <BoolIcon value={m.baptized} />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {formatDate(m.baptism_date)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
                     {m.church_role || "—"}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {maritalStatusLabels[m.marital_status] || "—"}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <BoolIcon value={m.baptized} />
+                  <TableCell className="whitespace-nowrap">
+                    {m.congregation || "—"}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <BoolIcon value={m.contacted} />
+                  <TableCell className="whitespace-nowrap">
+                    {m.origin_denomination || "—"}
                   </TableCell>
                   <TableCell className="text-center">
                     <BoolIcon value={m.membership_course_completed} />
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {formatDate(m.member_since)}
+                    {formatDate(m.membership_course_completed_at)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <BoolIcon value={m.contacted} />
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {m.origin_denomination || "—"}
+                    {formatDate(m.contacted_at)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {m.address || "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {m.address_number || "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {m.address_complement || "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {m.neighborhood || "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {m.city || "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {m.state || "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">

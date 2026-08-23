@@ -45,7 +45,6 @@ interface MemberFormProps {
 interface MemberFormInitialData {
     id: number;
     name?: string;
-    email?: string;
     phone?: string;
     status?: string;
     member_since?: string | null;
@@ -81,7 +80,6 @@ export function MemberForm({
 
     const [form, setForm] = useState({
         name: initialData?.name || "",
-        email: initialData?.email || "",
         phone: initialData?.phone || "",
         status: initialData?.status || "active",
 
@@ -253,26 +251,14 @@ export function MemberForm({
                             />
                         </div>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="email@exemplo.com"
-                                    value={form.email}
-                                    onChange={(e) => update("email", e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="phone">Telefone</Label>
-                                <Input
-                                    id="phone"
-                                    placeholder="(00) 00000-0000"
-                                    value={form.phone}
-                                    onChange={(e) => update("phone", e.target.value)}
-                                />
-                            </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="phone">Telefone</Label>
+                            <Input
+                                id="phone"
+                                placeholder="(00) 00000-0000"
+                                value={form.phone}
+                                onChange={(e) => update("phone", e.target.value)}
+                            />
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">
