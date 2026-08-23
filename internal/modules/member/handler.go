@@ -3,6 +3,7 @@ package member
 import (
 	"encoding/csv"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -11,37 +12,61 @@ import (
 )
 
 type Handler struct {
-	service *Service
+	service MemberService
 }
 
-func NewHandler(service *Service) *Handler {
+type MemberService interface {
+	Create(Member, bool) (Member, error)
+	CheckDuplicates(Member, int64) (DuplicateCheckResult, error)
+	Find(map[string]string, int, int) ([]Member, PaginationMeta, error)
+	Update(int64, Member, bool, int64) (Member, error)
+	SoftDelete(int64) error
+	ImportCSV(io.Reader, int64) (ImportResult, error)
+	GetByID(int64) (Member, error)
+}
+
+func NewHandler(service MemberService) *Handler {
 	return &Handler{service: service}
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	var m Member
+	var request MemberMutationRequest
 
-	if err := c.ShouldBindJSON(&m); err != nil {
+	if err := c.ShouldBindJSON(&request); err != nil {
 		response.Error(c, http.StatusBadRequest, err)
 		return
 	}
 
-	userIDValue, exists := c.Get("user_id")
-	if !exists {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
 		response.Error(c, http.StatusUnauthorized, errors.New("user not authenticated"))
 		return
 	}
 
-	userIDFloat := userIDValue.(float64)
-	m.CreatedBy = int64(userIDFloat)
+	request.Member.CreatedBy = userID
 
-	result, err := h.service.Create(m)
+	result, err := h.service.Create(request.Member, request.ForceCreate)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err)
+		handleMutationError(c, err)
 		return
 	}
 
 	response.Success(c, http.StatusCreated, result)
+}
+
+func (h *Handler) CheckDuplicates(c *gin.Context) {
+	var request DuplicateCheckRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.Error(c, http.StatusBadRequest, err)
+		return
+	}
+
+	result, err := h.service.CheckDuplicates(request.Member, request.ExcludeMemberID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err)
+		return
+	}
+	response.Success(c, http.StatusOK, result)
 }
 
 func (h *Handler) Find(c *gin.Context) {
@@ -77,16 +102,22 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	var payload Member
+	var request MemberMutationRequest
 
-	if err := c.ShouldBindJSON(&payload); err != nil {
+	if err := c.ShouldBindJSON(&request); err != nil {
 		response.Error(c, http.StatusBadRequest, err)
 		return
 	}
 
-	result, err := h.service.Update(id, payload)
+	userID, err := authenticatedUserID(c)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err)
+		response.Error(c, http.StatusUnauthorized, errors.New("user not authenticated"))
+		return
+	}
+
+	result, err := h.service.Update(id, request.Member, request.ForceCreate, userID)
+	if err != nil {
+		handleMutationError(c, err)
 		return
 	}
 
@@ -127,8 +158,11 @@ func (h *Handler) Import(c *gin.Context) {
 	}
 	defer file.Close()
 
-	userIDValue, _ := c.Get("user_id")
-	userID := int64(userIDValue.(float64))
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, errors.New("user not authenticated"))
+		return
+	}
 
 	result, err := h.service.ImportCSV(file, userID)
 	if err != nil {
@@ -137,6 +171,43 @@ func (h *Handler) Import(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, result)
+}
+
+func authenticatedUserID(c *gin.Context) (int64, error) {
+	value, exists := c.Get("user_id")
+	if !exists {
+		return 0, errors.New("user not authenticated")
+	}
+	switch userID := value.(type) {
+	case float64:
+		return int64(userID), nil
+	case int64:
+		return userID, nil
+	case int:
+		return int64(userID), nil
+	default:
+		return 0, errors.New("invalid authenticated user")
+	}
+}
+
+func handleMutationError(c *gin.Context, err error) {
+	var conflict *DuplicateConflictError
+	if errors.As(err, &conflict) {
+		c.JSON(http.StatusConflict, response.Response{
+			Data:  conflict.Result,
+			Error: conflict.Error(),
+		})
+		return
+	}
+	if errors.Is(err, ErrNameRequired) || errors.Is(err, ErrInvalidStatus) {
+		response.Error(c, http.StatusBadRequest, err)
+		return
+	}
+	if err.Error() == "member not found" {
+		response.Error(c, http.StatusNotFound, err)
+		return
+	}
+	response.Error(c, http.StatusInternalServerError, err)
 }
 
 func (h *Handler) DownloadTemplate(c *gin.Context) {

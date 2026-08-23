@@ -44,6 +44,7 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 		members.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 		{
 			members.POST("", handler.Create)
+			members.POST("/check-duplicates", handler.CheckDuplicates)
 			members.GET("", handler.Find)
 			members.GET("/:id", handler.GetByID)
 			members.PUT("/:id", handler.Update)

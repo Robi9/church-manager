@@ -11,6 +11,18 @@ interface ApiResponse<T> {
   error: string | null;
 }
 
+export class ApiError<T = unknown> extends Error {
+  status: number;
+  data: T | null;
+
+  constructor(message: string, status: number, data: T | null) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
 export async function api<T>(
   path: string,
   { method = "GET", body, token }: RequestOptions = {}
@@ -38,7 +50,11 @@ export async function api<T>(
   const json = await res.json();
 
   if (!res.ok) {
-    throw new Error(json.error || "An unexpected error occurred");
+    throw new ApiError(
+      json.error || "An unexpected error occurred",
+      res.status,
+      json.data ?? null,
+    );
   }
 
   return json;
