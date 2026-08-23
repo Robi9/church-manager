@@ -141,19 +141,6 @@ export default function ImportMembersPage() {
                     }}
                 />
 
-                <Button
-                    onClick={handleImport}
-                    disabled={!file || loading}
-                >
-                    {loading ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                        <Upload className="mr-2 h-4 w-4" />
-                    )}
-
-                    Importar
-                </Button>
-
                 <div className="flex gap-2">
                     <Button
                         variant="outline"
