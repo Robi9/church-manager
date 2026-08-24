@@ -121,6 +121,19 @@ func TestCreateWithoutDuplicateKeepsNormalFlow(t *testing.T) {
 	}
 }
 
+func TestCreateAllowsDifferentPersonWithSamePhone(t *testing.T) {
+	repo := newServiceRepository(Member{ID: 1, Name: "Maria Silva", Phone: "88999999999"})
+	created, err := NewService(repo).Create(Member{
+		Name: "Ana Silva", Phone: "+55 88 99999-9999", CreatedBy: 9,
+	}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID == 0 || len(repo.tx.created) != 1 || len(repo.tx.audits) != 0 {
+		t.Fatalf("same phone should be allowed: created=%+v audits=%v", created, repo.tx.audits)
+	}
+}
+
 func TestImportComparesAgainstRowsAlreadyAcceptedFromSameFile(t *testing.T) {
 	repo := newServiceRepository()
 	csv := strings.Join([]string{
@@ -135,6 +148,23 @@ func TestImportComparesAgainstRowsAlreadyAcceptedFromSameFile(t *testing.T) {
 	}
 	if result.Imported != 1 || result.Failed != 1 || !strings.Contains(result.Errors[0].Error, "alta probabilidade") {
 		t.Fatalf("unexpected import result: %+v", result)
+	}
+}
+
+func TestImportAllowsDifferentPeopleWithSamePhone(t *testing.T) {
+	repo := newServiceRepository()
+	csv := strings.Join([]string{
+		"Nome,Telefone,Status,Membro desde,Batizado,Data do batismo,Cargo,Estado civil,Congregação,Origem,Curso,Data curso,Contactado,Data contato,Endereço,Número,Complemento,Bairro,Cidade,Estado",
+		"Maria Silva,88999999999,Ativo,,Não,,,Solteiro,Sede,,Não,,Não,,Rua A,10,,Centro,Quixadá,CE",
+		"Ana Silva,+55 88 99999-9999,Ativo,,Não,,,Solteiro,Sede,,Não,,Não,,Rua A,10,,Centro,Quixadá,CE",
+	}, "\n")
+
+	result, err := NewService(repo).ImportCSV(strings.NewReader(csv), 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Imported != 2 || result.Failed != 0 {
+		t.Fatalf("same phone should not reject CSV rows: %+v", result)
 	}
 }
 

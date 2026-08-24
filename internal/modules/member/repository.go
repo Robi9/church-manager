@@ -63,7 +63,7 @@ func createMember(db dbExecutor, m Member) (Member, error) {
 	normalized := NormalizeMember(m)
 	query := `
 		INSERT INTO members (
-			name, email, phone, status,
+			name, phone, status,
 			member_since, baptized, baptism_date,
 			church_role, marital_status, origin_denomination, congregation,
 			membership_course_completed, membership_course_completed_at,
@@ -76,14 +76,14 @@ func createMember(db dbExecutor, m Member) (Member, error) {
 		)
 		VALUES (
 			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-			$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31
+			$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
 		)
 		RETURNING id
 	`
 
 	err := db.QueryRow(
 		query,
-		m.Name, m.Email, m.Phone, m.Status,
+		m.Name, m.Phone, m.Status,
 		m.MemberSince, m.Baptized, m.BaptismDate,
 		m.ChurchRole, m.MaritalStatus, m.OriginDenomination, m.Congregation,
 		m.MembershipCourseCompleted, m.MembershipCourseCompletedAt,
@@ -181,23 +181,23 @@ func updateMember(db dbExecutor, m Member) (Member, error) {
 	normalized := NormalizeMember(m)
 	query := `
 		UPDATE members SET
-			name=$1, email=$2, phone=$3, status=$4,
-			member_since=$5, baptized=$6, baptism_date=$7,
-			church_role=$8, marital_status=$9, origin_denomination=$10,
-			congregation=$11, membership_course_completed=$12,
-			membership_course_completed_at=$13, contacted=$14, contacted_at=$15,
-			address=$16, address_number=$17, address_complement=$18,
-			neighborhood=$19, city=$20, state=$21, updated_at=$22,
-			normalized_name=$23, normalized_phone=$24, normalized_address=$25,
-			normalized_address_number=$26, normalized_neighborhood=$27,
-			normalized_city=$28, normalized_congregation=$29
-		WHERE id=$30
+			name=$1, phone=$2, status=$3,
+			member_since=$4, baptized=$5, baptism_date=$6,
+			church_role=$7, marital_status=$8, origin_denomination=$9,
+			congregation=$10, membership_course_completed=$11,
+			membership_course_completed_at=$12, contacted=$13, contacted_at=$14,
+			address=$15, address_number=$16, address_complement=$17,
+			neighborhood=$18, city=$19, state=$20, updated_at=$21,
+			normalized_name=$22, normalized_phone=$23, normalized_address=$24,
+			normalized_address_number=$25, normalized_neighborhood=$26,
+			normalized_city=$27, normalized_congregation=$28
+		WHERE id=$29
 		RETURNING id
 	`
 
 	err := db.QueryRow(
 		query,
-		m.Name, m.Email, m.Phone, m.Status,
+		m.Name, m.Phone, m.Status,
 		m.MemberSince, m.Baptized, m.BaptismDate,
 		m.ChurchRole, m.MaritalStatus, m.OriginDenomination,
 		m.Congregation, m.MembershipCourseCompleted,
@@ -295,7 +295,7 @@ func (r *transactionRepository) CreateDuplicateAudits(audits []DuplicateAudit) e
 }
 
 const memberSelect = `
-	SELECT id, name, email, phone, status,
+	SELECT id, name, phone, status,
 		member_since, baptized, baptism_date,
 		church_role, marital_status, origin_denomination, congregation,
 		membership_course_completed, membership_course_completed_at,
@@ -312,7 +312,7 @@ type rowScanner interface {
 func scanMember(row rowScanner) (Member, error) {
 	var member Member
 	err := row.Scan(
-		&member.ID, &member.Name, &member.Email, &member.Phone, &member.Status,
+		&member.ID, &member.Name, &member.Phone, &member.Status,
 		&member.MemberSince, &member.Baptized, &member.BaptismDate,
 		&member.ChurchRole, &member.MaritalStatus, &member.OriginDenomination,
 		&member.Congregation, &member.MembershipCourseCompleted,

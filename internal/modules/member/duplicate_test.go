@@ -37,6 +37,21 @@ func TestEmptyValuesDoNotScore(t *testing.T) {
 	}
 }
 
+func TestEmptyPhoneDoesNotParticipateInComparison(t *testing.T) {
+	match := (ExactDuplicateMatcher{}).Compare(
+		Member{Name: "Maria", Phone: ""},
+		Member{Name: "Maria", Phone: "  "},
+	)
+	if match.Score != 40 || match.Risk != RiskMedium {
+		t.Fatalf("empty phone affected comparison: %+v", match)
+	}
+	for _, field := range match.MatchedFields {
+		if field == "phone" {
+			t.Fatalf("empty phone was reported as matching: %+v", match)
+		}
+	}
+}
+
 func TestDuplicateRiskRules(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -57,10 +72,10 @@ func TestDuplicateRiskRules(t *testing.T) {
 			wantRisk:  RiskHigh,
 		},
 		{
-			name:      "phone only is medium",
+			name:      "same phone with different people is allowed",
 			input:     Member{Name: "Maria", Phone: "88999999999"},
 			candidate: Member{Name: "Ana", Phone: "+55 88 99999-9999"},
-			wantRisk:  RiskMedium,
+			wantRisk:  RiskLow,
 		},
 		{
 			name:      "name only is medium",
@@ -69,14 +84,14 @@ func TestDuplicateRiskRules(t *testing.T) {
 			wantRisk:  RiskMedium,
 		},
 		{
-			name: "phone and address with different names is not high",
+			name: "child using responsible phone and address is allowed",
 			input: Member{
 				Name: "Maria", Phone: "88999999999", Address: "Rua A", AddressNumber: "1",
 			},
 			candidate: Member{
 				Name: "Ana", Phone: "88999999999", Address: "Rua A", AddressNumber: "1",
 			},
-			wantRisk: RiskMedium,
+			wantRisk: RiskLow,
 		},
 	}
 
@@ -105,8 +120,8 @@ func TestCandidatesAreSortedByRiskThenDescendingScore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := []int64{result.Candidates[0].MemberID, result.Candidates[1].MemberID, result.Candidates[2].MemberID}
-	want := []int64{3, 2, 1}
+	got := []int64{result.Candidates[0].MemberID, result.Candidates[1].MemberID}
+	want := []int64{3, 2}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("candidate order = %v, want %v", got, want)
 	}

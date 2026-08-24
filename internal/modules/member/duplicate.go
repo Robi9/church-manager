@@ -162,12 +162,14 @@ func (ExactDuplicateMatcher) Compare(input, candidate Member) DuplicateCandidate
 	add("congregation", valuesMatch(left.Congregation, right.Congregation), 5)
 
 	risk := RiskLow
-	// Name + address + number is an explicit high-risk product rule even though
-	// the configured weights for those three fields total 60 points.
-	if nameMatched && ((phoneMatched && score >= 70) || (addressMatched && numberMatched)) {
-		risk = RiskHigh
-	} else if score >= 40 {
-		risk = RiskMedium
+	if nameMatched {
+		// Name + address + number is an explicit high-risk product rule even though
+		// the configured weights for those three fields total 60 points.
+		if (phoneMatched && score >= 70) || (addressMatched && numberMatched) {
+			risk = RiskHigh
+		} else if score >= 40 {
+			risk = RiskMedium
+		}
 	}
 
 	return DuplicateCandidate{
