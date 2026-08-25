@@ -4,9 +4,18 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { formatBrazilianPhone } from "@/lib/phone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -28,8 +37,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-  CheckCircle2,
-  XCircle,
+  Eye,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -79,18 +87,16 @@ const maritalStatusLabels: Record<string, string> = {
   widowed: "Viúvo(a)",
 };
 
+const statusFilterLabels: Record<string, string> = {
+  all: "Todos",
+  active: "Ativo",
+  inactive: "Inativo",
+};
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
   const date = new Date(dateStr);
   return date.toLocaleDateString("pt-BR");
-}
-
-function BoolIcon({ value }: { value: boolean }) {
-  return value ? (
-    <CheckCircle2 className="h-4 w-4 text-green-600" />
-  ) : (
-    <XCircle className="h-4 w-4 text-muted-foreground/40" />
-  );
 }
 
 export default function MembersPage() {
@@ -99,8 +105,9 @@ export default function MembersPage() {
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState("active");
   const [page, setPage] = useState(1);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -156,19 +163,20 @@ export default function MembersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="min-w-0 space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Membros</h1>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
+            nativeButton={false}
             variant="outline"
             render={<Link href="/members/import" />}
           >
             Importar CSV
           </Button>
 
-          <Button render={<Link href="/members/new" />}>
+          <Button nativeButton={false} render={<Link href="/members/new" />}>
             <UserPlus className="mr-2 h-4 w-4" />
             Novo membro
           </Button>
@@ -195,7 +203,7 @@ export default function MembersPage() {
           }}
         >
           <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="Status" />
+            <SelectValue>{statusFilterLabels[status]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
@@ -217,23 +225,9 @@ export default function MembersPage() {
               <TableHead>Nome</TableHead>
               <TableHead>Telefone</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Membro desde</TableHead>
-              <TableHead className="text-center">Batizado</TableHead>
-              <TableHead>Data do batismo</TableHead>
-              <TableHead>Cargo na igreja</TableHead>
-              <TableHead>Estado civil</TableHead>
               <TableHead>Congregação</TableHead>
-              <TableHead>Igreja de origem</TableHead>
-              <TableHead className="text-center">Curso de membresia</TableHead>
-              <TableHead>Data do curso</TableHead>
-              <TableHead className="text-center">Contactado no WhatsApp</TableHead>
-              <TableHead>Data do contato</TableHead>
-              <TableHead>Endereço</TableHead>
-              <TableHead>Número</TableHead>
-              <TableHead>Complemento</TableHead>
-              <TableHead>Bairro</TableHead>
-              <TableHead>Cidade</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead>Cargo</TableHead>
+              <TableHead>Membro desde</TableHead>
               <TableHead className="text-right">
                 Ações
               </TableHead>
@@ -242,14 +236,14 @@ export default function MembersPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={21} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : members.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={21}
+                  colSpan={7}
                   className="h-24 text-center text-muted-foreground"
                 >
                   Nenhum membro encontrado
@@ -259,15 +253,16 @@ export default function MembersPage() {
               members.map((m) => (
                 <TableRow key={m.id}>
                   <TableCell className="font-medium whitespace-nowrap">
-                    <Link
-                      href={`/members/${m.id}`}
+                    <button
+                      type="button"
                       className="hover:underline"
+                      onClick={() => setSelectedMember(m)}
                     >
                       {m.name}
-                    </Link>
+                    </button>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {m.phone || "—"}
+                    {formatBrazilianPhone(m.phone) || "—"}
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -277,59 +272,28 @@ export default function MembersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {formatDate(m.member_since)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <BoolIcon value={m.baptized} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {formatDate(m.baptism_date)}
+                    {m.congregation || "—"}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {m.church_role || "—"}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {maritalStatusLabels[m.marital_status] || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {m.congregation || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {m.origin_denomination || "—"}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <BoolIcon value={m.membership_course_completed} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {formatDate(m.membership_course_completed_at)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <BoolIcon value={m.contacted} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {formatDate(m.contacted_at)}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {m.address || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {m.address_number || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {m.address_complement || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {m.neighborhood || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {m.city || "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {m.state || "—"}
+                    {formatDate(m.member_since)}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">
                       <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedMember(m)}
+                        aria-label={`Visualizar ${m.name}`}
+                        title="Visualizar membro"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+
+                      <Button
+                        nativeButton={false}
                         size="sm"
                         variant="outline"
                         render={<Link href={`/members/${m.id}`} />}
@@ -383,6 +347,108 @@ export default function MembersPage() {
           </div>
         </div>
       )}
+
+      <MemberDetailsDialog
+        member={selectedMember}
+        onClose={() => setSelectedMember(null)}
+      />
     </div>
   );
+}
+
+function MemberDetailsDialog({
+  member,
+  onClose,
+}: {
+  member: Member | null;
+  onClose: () => void;
+}) {
+  if (!member) return null;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{member.name}</DialogTitle>
+          <DialogDescription>
+            Informações completas do membro.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <MemberDetailSection
+            title="Dados pessoais"
+            fields={[
+              ["Nome", member.name],
+              ["Telefone", formatBrazilianPhone(member.phone)],
+              ["Status", member.status === "active" ? "Ativo" : "Inativo"],
+              ["Membro desde", formatDate(member.member_since)],
+              ["Estado civil", maritalStatusLabels[member.marital_status]],
+            ]}
+          />
+
+          <MemberDetailSection
+            title="Dados da igreja"
+            fields={[
+              ["Batizado", formatBoolean(member.baptized)],
+              ["Data do batismo", formatDate(member.baptism_date)],
+              ["Cargo na igreja", member.church_role],
+              ["Congregação", member.congregation],
+              ["Igreja de origem", member.origin_denomination],
+              ["Curso de membresia", formatBoolean(member.membership_course_completed)],
+              ["Data do curso", formatDate(member.membership_course_completed_at)],
+              ["Contactado no WhatsApp", formatBoolean(member.contacted)],
+              ["Data do contato", formatDate(member.contacted_at)],
+            ]}
+          />
+
+          <MemberDetailSection
+            title="Endereço"
+            fields={[
+              ["Endereço", member.address],
+              ["Número", member.address_number],
+              ["Complemento", member.address_complement],
+              ["Bairro", member.neighborhood],
+              ["Cidade", member.city],
+              ["Estado", member.state],
+            ]}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
+          <Button nativeButton={false} render={<Link href={`/members/${member.id}`} />}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Editar membro
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MemberDetailSection({
+  title,
+  fields,
+}: {
+  title: string;
+  fields: Array<[string, string | undefined]>;
+}) {
+  return (
+    <section>
+      <h3 className="mb-3 font-semibold">{title}</h3>
+      <dl className="grid gap-3 rounded-lg bg-muted/50 p-4 sm:grid-cols-2">
+        {fields.map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="mt-1 text-sm font-medium">{value || "—"}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function formatBoolean(value: boolean): string {
+  return value ? "Sim" : "Não";
 }

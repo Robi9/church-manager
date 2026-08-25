@@ -168,6 +168,47 @@ func TestImportAllowsDifferentPeopleWithSamePhone(t *testing.T) {
 	}
 }
 
+func TestConfirmImportDuplicateCreatesMemberAndAudit(t *testing.T) {
+	repo := newServiceRepository(Member{ID: 1, Name: "Maria", Phone: "88999999999"})
+	row := []string{
+		"Maria", "88999999999", "Ativo", "", "Não", "", "", "Solteiro",
+		"Sede", "", "Não", "", "Não", "", "Rua A", "10", "", "Centro", "Quixadá", "CE",
+	}
+	SaveImportJob(ImportJob{
+		ID: "confirm-duplicate-test",
+		ErrorRows: []ImportError{{
+			Row: 2, Code: "possible_duplicate", Data: row,
+			Candidates: []DuplicateCandidate{{MemberID: 1, Score: 85, Risk: RiskHigh}},
+		}},
+	})
+
+	created, err := NewService(repo).ConfirmImportDuplicate("confirm-duplicate-test", 2, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID == 0 || len(repo.tx.created) != 1 || len(repo.tx.audits) != 1 {
+		t.Fatalf("confirmation did not create member and audit: created=%+v audits=%+v", created, repo.tx.audits)
+	}
+	job, _ := GetImportJob("confirm-duplicate-test")
+	if len(job.ErrorRows) != 0 {
+		t.Fatalf("confirmed row remained pending: %+v", job.ErrorRows)
+	}
+}
+
+func TestDismissImportDuplicateRemovesPendingRow(t *testing.T) {
+	SaveImportJob(ImportJob{
+		ID:        "dismiss-duplicate-test",
+		ErrorRows: []ImportError{{Row: 2, Code: "possible_duplicate"}},
+	})
+	if err := NewService(newServiceRepository()).DismissImportDuplicate("dismiss-duplicate-test", 2); err != nil {
+		t.Fatal(err)
+	}
+	job, _ := GetImportJob("dismiss-duplicate-test")
+	if len(job.ErrorRows) != 0 {
+		t.Fatalf("dismissed row remained pending: %+v", job.ErrorRows)
+	}
+}
+
 func newServiceRepository(members ...Member) *serviceRepositoryStub {
 	for index := range members {
 		if members[index].Status == "" {

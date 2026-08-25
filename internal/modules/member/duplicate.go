@@ -34,6 +34,10 @@ type DuplicateCandidate struct {
 	Name          string        `json:"name"`
 	Phone         string        `json:"phone"`
 	Congregation  string        `json:"congregation"`
+	Address       string        `json:"address"`
+	AddressNumber string        `json:"address_number"`
+	Neighborhood  string        `json:"neighborhood"`
+	City          string        `json:"city"`
 	Score         int           `json:"score"`
 	Risk          DuplicateRisk `json:"risk"`
 	MatchedFields []string      `json:"matched_fields"`
@@ -177,6 +181,10 @@ func (ExactDuplicateMatcher) Compare(input, candidate Member) DuplicateCandidate
 		Name:          candidate.Name,
 		Phone:         MaskPhone(candidate.Phone),
 		Congregation:  candidate.Congregation,
+		Address:       candidate.Address,
+		AddressNumber: candidate.AddressNumber,
+		Neighborhood:  candidate.Neighborhood,
+		City:          candidate.City,
 		Score:         score,
 		Risk:          risk,
 		MatchedFields: matched,

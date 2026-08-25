@@ -27,6 +27,68 @@ type ServiceRepository interface {
 	SoftDelete(id int64) error
 }
 
+func (s *Service) ConfirmImportDuplicate(jobID string, row int, userID int64) (Member, error) {
+	importError, claimed := ClaimImportError(jobID, row)
+	if !claimed {
+		return Member{}, errors.New("import row not found or already being processed")
+	}
+	completed := false
+	defer func() {
+		CompleteImportError(jobID, row, completed)
+	}()
+
+	if importError.Code != "possible_duplicate" {
+		return Member{}, errors.New("import row is not eligible for confirmation")
+	}
+	member, validationError := parseImportMember(importError.Data, userID, time.Now())
+	if validationError != "" {
+		return Member{}, errors.New(validationError)
+	}
+
+	var created Member
+	err := s.repo.RunInTransaction(func(repo TransactionRepository) error {
+		if err := repo.AcquireDuplicateLock(NormalizeName(member.Name)); err != nil {
+			return err
+		}
+		duplicates, err := NewDuplicateChecker(repo).Check(member, 0)
+		if err != nil {
+			return err
+		}
+		created, err = repo.Create(member)
+		if err != nil {
+			return err
+		}
+		candidates := duplicates.Candidates
+		if len(candidates) == 0 {
+			candidates = importError.Candidates
+		}
+		if len(candidates) > 0 {
+			return repo.CreateDuplicateAudits(
+				buildDuplicateAudits(created.ID, userID, "create", candidates),
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return Member{}, err
+	}
+	completed = true
+	return created, nil
+}
+
+func (s *Service) DismissImportDuplicate(jobID string, row int) error {
+	importError, claimed := ClaimImportError(jobID, row)
+	if !claimed {
+		return errors.New("import row not found or already being processed")
+	}
+	if importError.Code != "possible_duplicate" {
+		CompleteImportError(jobID, row, false)
+		return errors.New("import row is not eligible for dismissal")
+	}
+	CompleteImportError(jobID, row, true)
+	return nil
+}
+
 type DuplicateConflictError struct {
 	Result DuplicateCheckResult
 }
@@ -239,11 +301,12 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 					return err
 				}
 				if duplicates.HighestRisk == RiskHigh {
-					addImportError(
+					addImportDuplicateError(
 						&result,
 						item.rowNumber,
 						item.row,
 						formatImportDuplicateError(duplicates.Candidates),
+						duplicates.Candidates,
 					)
 					continue
 				}
@@ -455,6 +518,23 @@ func normalizeCongregation(value string) (string, bool) {
 func addImportError(result *ImportResult, rowNumber int, row []string, message string) {
 	result.Failed++
 	result.Errors = append(result.Errors, ImportError{Row: rowNumber, Error: message, Data: row})
+}
+
+func addImportDuplicateError(
+	result *ImportResult,
+	rowNumber int,
+	row []string,
+	message string,
+	candidates []DuplicateCandidate,
+) {
+	result.Failed++
+	result.Errors = append(result.Errors, ImportError{
+		Row:        rowNumber,
+		Error:      message,
+		Code:       "possible_duplicate",
+		Data:       row,
+		Candidates: candidates,
+	})
 }
 
 func isValidMaritalStatus(status MaritalStatus) bool {

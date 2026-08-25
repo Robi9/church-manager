@@ -5,6 +5,10 @@ export interface DuplicateCandidate {
     name: string;
     phone: string;
     congregation: string;
+    address: string;
+    address_number: string;
+    neighborhood: string;
+    city: string;
     score: number;
     risk: DuplicateRisk;
     matched_fields: string[];

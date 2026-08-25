@@ -10,9 +10,11 @@ type ImportResult struct {
 }
 
 type ImportError struct {
-	Row   int      `json:"row"`
-	Error string   `json:"error"`
-	Data  []string `json:"data"`
+	Row        int                  `json:"row"`
+	Error      string               `json:"error"`
+	Code       string               `json:"code,omitempty"`
+	Data       []string             `json:"data"`
+	Candidates []DuplicateCandidate `json:"candidates,omitempty"`
 }
 
 type ImportJob struct {

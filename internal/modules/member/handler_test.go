@@ -34,7 +34,11 @@ func (s *handlerServiceStub) SoftDelete(int64) error { return nil }
 func (s *handlerServiceStub) ImportCSV(io.Reader, int64) (ImportResult, error) {
 	return ImportResult{}, nil
 }
-func (s *handlerServiceStub) GetByID(int64) (Member, error) { return Member{}, nil }
+func (s *handlerServiceStub) ConfirmImportDuplicate(string, int, int64) (Member, error) {
+	return Member{}, nil
+}
+func (s *handlerServiceStub) DismissImportDuplicate(string, int) error { return nil }
+func (s *handlerServiceStub) GetByID(int64) (Member, error)            { return Member{}, nil }
 
 func TestCreateHandlerReturns409WithDuplicateCandidates(t *testing.T) {
 	gin.SetMode(gin.TestMode)

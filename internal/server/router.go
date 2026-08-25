@@ -50,6 +50,14 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 			members.PUT("/:id", handler.Update)
 			members.DELETE("/:id", handler.Delete)
 			members.POST("/import", handler.Import)
+			members.POST(
+				"/import/errors/:jobID/confirm",
+				handler.ConfirmImportDuplicate,
+			)
+			members.POST(
+				"/import/errors/:jobID/dismiss",
+				handler.DismissImportDuplicate,
+			)
 			members.GET("/import/template", handler.DownloadTemplate)
 			members.GET(
 				"/import/errors/:jobID",

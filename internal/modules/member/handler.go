@@ -22,6 +22,8 @@ type MemberService interface {
 	Update(int64, Member, bool, int64) (Member, error)
 	SoftDelete(int64) error
 	ImportCSV(io.Reader, int64) (ImportResult, error)
+	ConfirmImportDuplicate(string, int, int64) (Member, error)
+	DismissImportDuplicate(string, int) error
 	GetByID(int64) (Member, error)
 }
 
@@ -171,6 +173,42 @@ func (h *Handler) Import(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, result)
+}
+
+type confirmImportDuplicateRequest struct {
+	Row int `json:"row"`
+}
+
+func (h *Handler) ConfirmImportDuplicate(c *gin.Context) {
+	var request confirmImportDuplicateRequest
+	if err := c.ShouldBindJSON(&request); err != nil || request.Row <= 1 {
+		response.Error(c, http.StatusBadRequest, errors.New("valid import row is required"))
+		return
+	}
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, errors.New("user not authenticated"))
+		return
+	}
+	created, err := h.service.ConfirmImportDuplicate(c.Param("jobID"), request.Row, userID)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err)
+		return
+	}
+	response.Success(c, http.StatusCreated, created)
+}
+
+func (h *Handler) DismissImportDuplicate(c *gin.Context) {
+	var request confirmImportDuplicateRequest
+	if err := c.ShouldBindJSON(&request); err != nil || request.Row <= 1 {
+		response.Error(c, http.StatusBadRequest, errors.New("valid import row is required"))
+		return
+	}
+	if err := h.service.DismissImportDuplicate(c.Param("jobID"), request.Row); err != nil {
+		response.Error(c, http.StatusBadRequest, err)
+		return
+	}
+	response.Success(c, http.StatusOK, gin.H{"message": "import row dismissed"})
 }
 
 func authenticatedUserID(c *gin.Context) (int64, error) {

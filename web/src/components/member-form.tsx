@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
+import { formatBrazilianPhone } from "@/lib/phone";
 import {
     duplicateFieldLabels,
     duplicateRiskLabels,
@@ -80,7 +81,7 @@ export function MemberForm({
 
     const [form, setForm] = useState({
         name: initialData?.name || "",
-        phone: initialData?.phone || "",
+        phone: formatBrazilianPhone(initialData?.phone || ""),
         status: initialData?.status || "active",
 
         member_since: initialData?.member_since?.slice(0, 10) || "",
@@ -219,7 +220,7 @@ export function MemberForm({
     return (
         <div className="mx-auto max-w-2xl space-y-6">
             <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" render={<Link href="/members" />}>
+                <Button nativeButton={false} variant="ghost" size="icon" render={<Link href="/members" />}>
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <h1 className="text-2xl font-bold">
@@ -255,9 +256,11 @@ export function MemberForm({
                             <Label htmlFor="phone">Telefone</Label>
                             <Input
                                 id="phone"
+                                inputMode="tel"
+                                maxLength={15}
                                 placeholder="(00) 00000-0000"
                                 value={form.phone}
-                                onChange={(e) => update("phone", e.target.value)}
+                                onChange={(e) => update("phone", formatBrazilianPhone(e.target.value))}
                             />
                         </div>
 
@@ -502,7 +505,7 @@ export function MemberForm({
                 </Card>
 
                 <div className="flex justify-end gap-3">
-                    <Button variant="outline" type="button" render={<Link href="/members" />}>
+                    <Button nativeButton={false} variant="outline" render={<Link href="/members" />}>
                         Cancelar
                     </Button>
                     <Button type="submit" disabled={loading}>
@@ -575,6 +578,7 @@ export function MemberForm({
                                 </div>
 
                                 <Button
+                                    nativeButton={false}
                                     className="mt-3"
                                     size="sm"
                                     variant="outline"
