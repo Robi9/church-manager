@@ -43,7 +43,7 @@ interface MemberFormProps {
     initialData?: MemberFormInitialData;
 }
 
-interface MemberFormInitialData {
+export interface MemberFormInitialData {
     id: number;
     name?: string;
     phone?: string;

@@ -37,13 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_KEY);
-    if (stored && isTokenValid(stored)) {
-      setToken(stored);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-    }
-    setLoaded(true);
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      const stored = localStorage.getItem(TOKEN_KEY);
+      if (stored && isTokenValid(stored)) {
+        setToken(stored);
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+      }
+      setLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const login = useCallback(

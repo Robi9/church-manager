@@ -14,13 +14,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
+import { API_URL } from "@/lib/api";
 import { formatBrazilianPhone } from "@/lib/phone";
 import {
     duplicateFieldLabels,
     type DuplicateCandidate,
 } from "@/lib/member-duplicates";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 interface ImportError {
     row: number;

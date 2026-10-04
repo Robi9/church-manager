@@ -31,7 +31,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 				return nil, jwt.ErrSignatureInvalid
 			}
 			return secret, nil
-		})
+		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})

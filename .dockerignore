@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+web
+bin
+tmp
+*.csv
+**/node_modules
+**/.next

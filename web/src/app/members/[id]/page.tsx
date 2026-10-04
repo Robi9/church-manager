@@ -1,25 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { MemberForm } from "@/components/member-form";
+import {
+    MemberForm,
+    type MemberFormInitialData,
+} from "@/components/member-form";
 
 export default function EditMemberPage() {
     const { id } = useParams();
     const { token } = useAuth();
 
-    const [member, setMember] = useState<any>(null);
+    const [member, setMember] = useState<MemberFormInitialData | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        loadMember();
-    }, []);
-
-    async function loadMember() {
+    const loadMember = useCallback(async () => {
         try {
-            const res = await api(`/members/${id}`, {
+            const res = await api<MemberFormInitialData>(`/members/${id}`, {
                 token,
             });
 
@@ -29,7 +28,11 @@ export default function EditMemberPage() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [id, token]);
+
+    useEffect(() => {
+        void loadMember();
+    }, [loadMember]);
 
     if (loading) {
         return <div>Carregando...</div>;

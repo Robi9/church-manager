@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"log"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -17,9 +18,18 @@ func RunMigrations(databaseURL string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() {
+		sourceErr, databaseErr := m.Close()
+		if sourceErr != nil {
+			log.Printf("closing migration source: %v", sourceErr)
+		}
+		if databaseErr != nil {
+			log.Printf("closing migration database: %v", databaseErr)
+		}
+	}()
 
 	err = m.Up()
-	if err != nil && err.Error() != "no change" {
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatal(err)
 	}
 

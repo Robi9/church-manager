@@ -48,3 +48,9 @@ func (r *Repository) EmailExists(email string) (bool, error) {
 
 	return exists, err
 }
+
+func (r *Repository) Count() (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count)
+	return count, err
+}

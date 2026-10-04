@@ -15,6 +15,8 @@ type Handler struct {
 	service MemberService
 }
 
+const maxImportSize = 5 << 20 // 5 MiB
+
 type MemberService interface {
 	Create(Member, bool) (Member, error)
 	CheckDuplicates(Member, int64) (DuplicateCheckResult, error)
@@ -147,9 +149,14 @@ func (h *Handler) Delete(c *gin.Context) {
 }
 
 func (h *Handler) Import(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxImportSize+(1<<20))
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, errors.New("file is required"))
+		return
+	}
+	if fileHeader.Size > maxImportSize {
+		response.Error(c, http.StatusRequestEntityTooLarge, errors.New("file must be at most 5 MB"))
 		return
 	}
 

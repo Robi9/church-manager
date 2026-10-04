@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -16,15 +17,35 @@ import (
 
 func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	r := gin.Default()
+	_ = r.SetTrustedProxies(nil)
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     cfg.AllowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
+	r.Use(func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("Referrer-Policy", "no-referrer")
+		c.Next()
+	})
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+	r.GET("/ready", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		if err := db.PingContext(ctx); err != nil {
+			c.JSON(503, gin.H{"status": "unavailable"})
+			return
+		}
+		c.JSON(200, gin.H{"status": "ok"})
+	})
 
 	repo := member.NewRepository(db)
 	service := member.NewService(repo)
@@ -76,7 +97,9 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 
 	authGroup := api.Group("/auth")
 	{
-		authGroup.POST("/register", authHandler.Register)
+		if cfg.AllowRegistration {
+			authGroup.POST("/register", authHandler.Register)
+		}
 		authGroup.POST("/login", loginLimiter.Middleware(), authHandler.Login)
 	}
 
