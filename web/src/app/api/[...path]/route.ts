@@ -11,6 +11,21 @@ function jsonError(status: number, message: string) {
   });
 }
 
+function expectedOrigin(request: NextRequest): string | null {
+  // Serverless adapters can rewrite nextUrl to an internal HTTP address.
+  // Use trusted deployment configuration, never client-supplied forwarded headers.
+  const configured = process.env.APP_ORIGIN || process.env.URL;
+  if (!configured) return request.nextUrl.origin;
+  try {
+    const url = new URL(configured);
+    if (url.username || url.password || url.search || url.hash || url.pathname !== "/") return null;
+    if (url.protocol !== "https:" && (production || url.protocol !== "http:")) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 // Only fixed API routes are forwarded; no caller-controlled host or headers.
 function allowed(path: string, method: string) {
   if (/^auth\/(login|logout|logout-all)$/.test(path)) return method === "POST";
@@ -29,9 +44,9 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   if (!allowed(path, request.method)) return jsonError(404, "Endpoint não encontrado.");
 
   const mutation = !["GET", "HEAD"].includes(request.method);
-  // Origin is supplied by browsers and cannot be set by cross-origin scripts.
-  // Check login too, to prevent login CSRF. Never trust a forwarded Origin value.
-  if (mutation && request.headers.get("origin") !== request.nextUrl.origin) {
+  // Check login too, to prevent login CSRF. Missing or invalid origins fail closed.
+  const origin = expectedOrigin(request);
+  if (mutation && (!origin || request.headers.get("origin") !== origin)) {
     return jsonError(403, "Origem da requisição inválida.");
   }
   if (request.headers.get("sec-fetch-site") === "cross-site") {

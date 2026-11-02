@@ -153,10 +153,10 @@ npm run dev
 
 ## Production deployment
 
-The lowest-cost supported setup is:
+The production setup uses:
 
 * Netlify for the Next.js frontend
-* Koyeb for the Go API
+* Render for the Go API
 * Neon for PostgreSQL
 
 The frontend and backend are separate deployments connected to the same Git
@@ -168,10 +168,11 @@ the root `Dockerfile` builds the API.
 Create a PostgreSQL project and copy its pooled connection string. It must use
 TLS (`sslmode=require`). The API applies the SQL migrations during startup.
 
-### 2. Deploy the API on Koyeb
+### 2. Deploy the API on Render
 
-Create a Web Service from this repository and select the root `Dockerfile`.
-Configure the health check path as `/health`, port `8080`, and add:
+Create a Web Service from this repository on Render, select the `main` branch,
+and use Docker with the root `Dockerfile`. Configure the health check path as
+`/health`, set `PORT=8080`, and add:
 
 ```env
 APP_ENV=production
@@ -189,26 +190,32 @@ real values above.
 
 The initial admin is created only when the users table is empty. After the
 first successful login, remove `INITIAL_ADMIN_EMAIL` and
-`INITIAL_ADMIN_PASSWORD` from Koyeb and redeploy. Public registration stays
-disabled unless `ALLOW_REGISTRATION=true` is explicitly configured.
+`INITIAL_ADMIN_PASSWORD` from Render and redeploy. Public registration stays
+disabled; production configuration rejects `ALLOW_REGISTRATION=true`.
 
 Verify the API before deploying the frontend:
 
 ```bash
-curl https://your-api.koyeb.app/health
-curl https://your-api.koyeb.app/ready
+curl https://your-api.onrender.com/health
+curl https://your-api.onrender.com/ready
 ```
 
 Both endpoints should return `{"status":"ok"}`.
 
 ### 3. Deploy the frontend on Netlify
 
-Import the same repository. Netlify reads `netlify.toml`. Add this environment
-variable before the first production build:
+Import the same repository. Netlify reads `netlify.toml`. Add these environment
+variables for the Production context, including the Functions scope, before the
+first production build:
 
 ```env
-API_URL=https://your-api.koyeb.app/api
+API_URL=https://your-api.onrender.com/api
+APP_ORIGIN=https://your-site.netlify.app
 ```
+
+`API_URL` points to the Render API and includes `/api`. `APP_ORIGIN` is the
+public frontend origin and does not include `/api`. Keep production API values
+out of preview and branch deployment contexts.
 
 After Netlify provides the final site URL, make sure that exact origin appears
 in the API's `ALLOWED_ORIGINS` value and redeploy the API. Multiple origins are

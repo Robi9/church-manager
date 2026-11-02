@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 
 // Compile the actual route with the project's TypeScript compiler, then supply
 // a fake upstream. No live credentials or production services are used.
-function route(upstream) {
+function route(upstream, environment = {}) {
   const source = fs.readFileSync('src/app/api/[...path]/route.ts', 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
@@ -18,7 +18,7 @@ function route(upstream) {
   const exports = {};
   vm.runInNewContext(compiled, {
     exports, require, URL, Headers, Uint8Array, AbortSignal,
-    process: { env: { NODE_ENV: 'production', API_URL: 'https://api.example.org/api' } },
+    process: { env: { NODE_ENV: 'production', API_URL: 'https://api.example.org/api', ...environment } },
     fetch: upstream,
   });
   return exports;
@@ -100,4 +100,56 @@ test('oversized uploads are rejected before contacting the API', async () => {
     body: 'x'.repeat(6 * 1024 * 1024 + 1),
   }), context('members/import'));
   assert.equal(result.status, 413);
+});
+
+
+test('Netlify public URL validates login when the adapter rewrites the request URL', async () => {
+  const handler = route(async () => Response.json({ data: { token: 'e'.repeat(43), expires_in: 7200 } }), {
+    URL: 'https://church.example.org',
+  });
+  const result = await handler.POST(new NextRequest('http://localhost:3000/api/auth/login', {
+    method: 'POST', headers: { origin: 'https://church.example.org', 'sec-fetch-site': 'same-origin' },
+  }), context('auth/login'));
+  assert.equal(result.status, 200);
+  assert.match(result.headers.get('set-cookie'), /Secure/);
+});
+
+test('explicit public origin overrides the Netlify URL for custom domains', async () => {
+  const handler = route(async () => Response.json({ data: { token: 'f'.repeat(43) } }), {
+    APP_ORIGIN: 'https://custom.example.org/', URL: 'https://church.example.org',
+  });
+  const result = await handler.POST(request('auth/login', {
+    method: 'POST', headers: { origin: 'https://custom.example.org' },
+  }), context('auth/login'));
+  assert.equal(result.status, 200);
+});
+
+test('public origin configuration still rejects foreign, missing, and spoofed origins', async () => {
+  const handler = route(() => { throw new Error('must not contact API'); }, {
+    URL: 'https://church.example.org',
+  });
+  for (const headers of [
+    { origin: 'https://attacker.example', 'x-forwarded-host': 'attacker.example', 'x-forwarded-proto': 'https' },
+    { origin: 'https://church.example.org.attacker.example' },
+    { origin: 'null' },
+    { origin: 'http://localhost:3000' },
+    { 'x-forwarded-origin': 'https://church.example.org' },
+    { origin: 'https://church.example.org', 'sec-fetch-site': 'cross-site' },
+  ]) {
+    const result = await handler.POST(new NextRequest('http://localhost:3000/api/auth/login', {
+      method: 'POST', headers,
+    }), context('auth/login'));
+    assert.equal(result.status, 403);
+  }
+});
+
+test('invalid configured public origins fail closed', async () => {
+  for (const APP_ORIGIN of ['not-a-url', 'http://church.example.org', 'https://church.example.org/path',
+    'https://user:password@church.example.org', 'https://church.example.org?query=value']) {
+    const handler = route(() => { throw new Error('must not contact API'); }, { APP_ORIGIN });
+    const result = await handler.POST(request('auth/login', {
+      method: 'POST', headers: { origin: 'https://church.example.org' },
+    }), context('auth/login'));
+    assert.equal(result.status, 403);
+  }
 });

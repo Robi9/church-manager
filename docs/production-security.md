@@ -8,6 +8,13 @@
 2. In the frontend server environment, set **API_URL** to the API's HTTPS URL,
    ending in `/api`. The previous `NEXT_PUBLIC_API_URL` setting remains supported
    during the transition. The browser now calls only the frontend's own `/api`.
+   For origin validation behind reverse proxies, set **APP_ORIGIN** to the public
+   frontend origin (HTTPS scheme and hostname, without `/api`). On Netlify, the
+   server-provided `URL` variable is used automatically when APP_ORIGIN is unset.
+   Configure APP_ORIGIN explicitly when using a different public domain. These
+   variables must be available to server functions in the production context.
+   Neither request-supplied forwarding headers nor the incoming Origin header
+   determine the trusted public origin.
 3. Deploy the frontend and sign in again. Check login, search, editing, imports,
    error report downloads, and logout on the final HTTPS domain. Preview deploys
    must use a test API and database without real data.
