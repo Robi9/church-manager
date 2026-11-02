@@ -1,48 +1,38 @@
 package middleware
 
 import (
+	"context"
+	"database/sql"
+	"errors"
+	"github.com/Robi9/church-manager/internal/modules/auth"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
-
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
-func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
-	secret := []byte(jwtSecret)
+type SessionValidator interface {
+	ValidateSession(context.Context, string) (int64, error)
+}
 
+func AuthMiddleware(secret string, sessions SessionValidator) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
-			c.Abort()
+		parts := strings.Fields(c.GetHeader("Authorization"))
+		if len(parts) != 2 || parts[0] != "Bearer" || len(parts[1]) != 43 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
 			return
 		}
-
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token format"})
-			c.Abort()
-			return
-		}
-
-		token, err := jwt.Parse(parts[1], func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, jwt.ErrSignatureInvalid
+		digest := auth.SessionDigest(parts[1], secret)
+		id, err := sessions.ValidateSession(c.Request.Context(), digest)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				c.AbortWithStatusJSON(401, gin.H{"error": "invalid session"})
+			} else {
+				c.AbortWithStatusJSON(503, gin.H{"error": "authentication temporarily unavailable"})
 			}
-			return secret, nil
-		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
-
-		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
-			c.Abort()
 			return
 		}
-
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			c.Set("user_id", claims["user_id"])
-		}
-
+		c.Set("user_id", id)
+		c.Set("session_hash", digest)
 		c.Next()
 	}
 }

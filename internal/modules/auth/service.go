@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,8 +24,8 @@ func (s *Service) Register(email, password string) (User, error) {
 		return User{}, errors.New("email and password are required")
 	}
 
-	if len(password) < 8 {
-		return User{}, errors.New("password must be at least 8 characters")
+	if len(password) < 12 {
+		return User{}, errors.New("password must be at least 12 characters")
 	}
 
 	exists, err := s.repo.EmailExists(email)
@@ -78,5 +79,12 @@ func (s *Service) Login(email, password string) (string, error) {
 		return "", errors.New("invalid credentials")
 	}
 
-	return generateToken(user.ID, s.jwtSecret)
+	token, err := newSessionToken()
+	if err != nil {
+		return "", err
+	}
+	if err := s.repo.CreateSession(user.ID, SessionDigest(token, s.jwtSecret), time.Now().Add(SessionLifetime)); err != nil {
+		return "", err
+	}
+	return token, nil
 }

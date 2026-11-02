@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -51,6 +52,9 @@ func Load() *Config {
 		log.Fatal("INITIAL_ADMIN_PASSWORD must have at least 12 characters")
 	}
 
+	if err := validateProduction(cfg); err != nil {
+		log.Fatal(err)
+	}
 	return cfg
 }
 
@@ -82,4 +86,34 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func validateProduction(cfg *Config) error {
+	if cfg.Environment != "production" {
+		return nil
+	}
+	database, err := url.Parse(cfg.DatabaseURL)
+	if err != nil || (database.Scheme != "postgres" && database.Scheme != "postgresql") || database.Hostname() == "" {
+		return fmt.Errorf("production DATABASE_URL must be a PostgreSQL URL")
+	}
+	mode := database.Query().Get("sslmode")
+	if mode != "require" && mode != "verify-ca" && mode != "verify-full" {
+		return fmt.Errorf("production DATABASE_URL must require TLS")
+	}
+	if len(cfg.AllowedOrigins) == 0 {
+		return fmt.Errorf("production ALLOWED_ORIGINS must be configured")
+	}
+	if len(cfg.JWTSecret) < 32 || strings.Contains(strings.ToLower(cfg.JWTSecret), "replace-with") {
+		return fmt.Errorf("production JWT_SECRET must be a random secret of at least 32 characters")
+	}
+	if cfg.AllowRegistration {
+		return fmt.Errorf("public registration must be disabled in production")
+	}
+	for _, origin := range cfg.AllowedOrigins {
+		parsed, err := url.Parse(origin)
+		if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || strings.Contains(origin, "*") || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return fmt.Errorf("production ALLOWED_ORIGINS must contain exact HTTPS origins")
+		}
+	}
+	return nil
 }

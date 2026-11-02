@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -16,7 +17,15 @@ import (
 )
 
 func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
+	// Deliberately omit Gin's request logger: query strings can contain member names.
+	r.Use(func(c *gin.Context) {
+		if c.Request.URL.Path != "/api/members/import" {
+			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
+		}
+		c.Next()
+	})
 	_ = r.SetTrustedProxies(nil)
 
 	r.Use(cors.New(cors.Config{
@@ -28,6 +37,10 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	}))
 	r.Use(func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		if cfg.Environment == "production" {
+			c.Header("Strict-Transport-Security", "max-age=31536000")
+		}
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("Referrer-Policy", "no-referrer")
@@ -62,7 +75,7 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 	api := r.Group("/api")
 	{
 		members := api.Group("/members")
-		members.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		members.Use(middleware.AuthMiddleware(cfg.JWTSecret, authRepo))
 		{
 			members.POST("", handler.Create)
 			members.POST("/check-duplicates", handler.CheckDuplicates)
@@ -87,7 +100,7 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 		}
 
 		dashboardGroup := api.Group("/dashboard")
-		dashboardGroup.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		dashboardGroup.Use(middleware.AuthMiddleware(cfg.JWTSecret, authRepo))
 		{
 			dashboardGroup.GET("/stats", dashboardHandler.GetStats)
 		}
@@ -101,6 +114,11 @@ func SetupRouter(db *sql.DB, cfg *config.Config) *gin.Engine {
 			authGroup.POST("/register", authHandler.Register)
 		}
 		authGroup.POST("/login", loginLimiter.Middleware(), authHandler.Login)
+		protected := authGroup.Group("")
+		protected.Use(middleware.AuthMiddleware(cfg.JWTSecret, authRepo))
+		protected.GET("/me", authHandler.Me)
+		protected.POST("/logout", authHandler.Logout)
+		protected.POST("/logout-all", authHandler.LogoutAll)
 	}
 
 	return r

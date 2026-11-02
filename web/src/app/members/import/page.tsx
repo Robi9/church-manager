@@ -13,8 +13,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { useAuth } from "@/lib/auth";
-import { API_URL } from "@/lib/api";
+import { API_URL, sessionFetch } from "@/lib/api";
 import { formatBrazilianPhone } from "@/lib/phone";
 import {
     duplicateFieldLabels,
@@ -43,7 +42,6 @@ interface ReviewNotice {
 }
 
 export default function ImportMembersPage() {
-    const { token } = useAuth();
 
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
@@ -67,11 +65,8 @@ export default function ImportMembersPage() {
             const formData = new FormData();
             formData.append("file", file);
 
-            const res = await fetch(`${API_URL}/members/import`, {
+            const res = await sessionFetch(`${API_URL}/members/import`, {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
                 body: formData,
             });
 
@@ -97,13 +92,8 @@ export default function ImportMembersPage() {
 
     async function downloadErrors(jobId: string) {
         try {
-            const res = await fetch(
-                `${API_URL}/members/import/errors/${jobId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
+            const res = await sessionFetch(
+                `${API_URL}/members/import/errors/${jobId}`
             );
 
             if (!res.ok) {
@@ -130,15 +120,14 @@ export default function ImportMembersPage() {
     }
 
     async function downloadTemplate() {
-        const res = await fetch(
-            `${API_URL}/members/import/template`,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            }
+        const res = await sessionFetch(
+            `${API_URL}/members/import/template`
         );
 
+        if (!res.ok) {
+            setError("Não foi possível baixar o modelo de importação.");
+            return;
+        }
         const blob = await res.blob();
 
         const url = window.URL.createObjectURL(blob);
@@ -158,12 +147,11 @@ export default function ImportMembersPage() {
         setError("");
         setConfirmingRow(row);
         try {
-            const res = await fetch(
+            const res = await sessionFetch(
                 `${API_URL}/members/import/errors/${jobID}/confirm`,
                 {
                     method: "POST",
                     headers: {
-                        Authorization: `Bearer ${token}`,
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({ row }),
@@ -194,12 +182,11 @@ export default function ImportMembersPage() {
         setError("");
         setDismissingRow(row);
         try {
-            const res = await fetch(
+            const res = await sessionFetch(
                 `${API_URL}/members/import/errors/${jobID}/dismiss`,
                 {
                     method: "POST",
                     headers: {
-                        Authorization: `Bearer ${token}`,
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({ row }),

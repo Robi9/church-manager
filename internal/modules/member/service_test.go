@@ -175,7 +175,7 @@ func TestConfirmImportDuplicateCreatesMemberAndAudit(t *testing.T) {
 		"Sede", "", "Não", "", "Não", "", "Rua A", "10", "", "Centro", "Quixadá", "CE",
 	}
 	SaveImportJob(ImportJob{
-		ID: "confirm-duplicate-test",
+		ID: "confirm-duplicate-test", OwnerID: 9,
 		ErrorRows: []ImportError{{
 			Row: 2, Code: "possible_duplicate", Data: row,
 			Candidates: []DuplicateCandidate{{MemberID: 1, Score: 85, Risk: RiskHigh}},
@@ -189,7 +189,7 @@ func TestConfirmImportDuplicateCreatesMemberAndAudit(t *testing.T) {
 	if created.ID == 0 || len(repo.tx.created) != 1 || len(repo.tx.audits) != 1 {
 		t.Fatalf("confirmation did not create member and audit: created=%+v audits=%+v", created, repo.tx.audits)
 	}
-	job, _ := GetImportJob("confirm-duplicate-test")
+	job, _ := GetImportJob("confirm-duplicate-test", 9)
 	if len(job.ErrorRows) != 0 {
 		t.Fatalf("confirmed row remained pending: %+v", job.ErrorRows)
 	}
@@ -197,13 +197,13 @@ func TestConfirmImportDuplicateCreatesMemberAndAudit(t *testing.T) {
 
 func TestDismissImportDuplicateRemovesPendingRow(t *testing.T) {
 	SaveImportJob(ImportJob{
-		ID:        "dismiss-duplicate-test",
+		ID: "dismiss-duplicate-test", OwnerID: 9,
 		ErrorRows: []ImportError{{Row: 2, Code: "possible_duplicate"}},
 	})
-	if err := NewService(newServiceRepository()).DismissImportDuplicate("dismiss-duplicate-test", 2); err != nil {
+	if err := NewService(newServiceRepository()).DismissImportDuplicate("dismiss-duplicate-test", 2, 9); err != nil {
 		t.Fatal(err)
 	}
-	job, _ := GetImportJob("dismiss-duplicate-test")
+	job, _ := GetImportJob("dismiss-duplicate-test", 9)
 	if len(job.ErrorRows) != 0 {
 		t.Fatalf("dismissed row remained pending: %+v", job.ErrorRows)
 	}

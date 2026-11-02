@@ -18,6 +18,7 @@ type ImportError struct {
 }
 
 type ImportJob struct {
+	OwnerID   int64
 	ID        string
 	CreatedAt time.Time
 	Headers   []string

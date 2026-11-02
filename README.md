@@ -17,7 +17,7 @@ Church Manager is a web application designed to help churches manage members, re
 
 * Go
 * PostgreSQL
-* JWT Authentication
+* Server-side sessions with HttpOnly cookies
 
 ### Frontend
 
@@ -41,7 +41,7 @@ church-manager/
 
 Make sure you have the following installed:
 
-* Go 1.24+
+* Go 1.26.10+
 * Node.js 22+
 * PostgreSQL
 
@@ -104,7 +104,7 @@ npm install
 Create a `.env.local` file:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8080/api
+API_URL=http://localhost:8080/api
 ```
 
 Start the development server:
@@ -207,7 +207,7 @@ Import the same repository. Netlify reads `netlify.toml`. Add this environment
 variable before the first production build:
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-api.koyeb.app/api
+API_URL=https://your-api.koyeb.app/api
 ```
 
 After Netlify provides the final site URL, make sure that exact origin appears
@@ -236,3 +236,7 @@ upgraded independently.
 ## License
 
 This project is currently under development.
+
+## Production security
+
+Before adding real member data, follow [the production security and backup guide](docs/production-security.md). Sessions now expire after two hours and are revoked on logout. Deploy the API migration before the frontend update.

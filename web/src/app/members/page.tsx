@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { formatBrazilianPhone } from "@/lib/phone";
 import { Button } from "@/components/ui/button";
@@ -100,7 +99,6 @@ function formatDate(dateStr: string | null): string {
 }
 
 export default function MembersPage() {
-  const { token } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,8 +117,7 @@ export default function MembersPage() {
       params.set("limit", "10");
 
       const res = await api<MembersResponse>(
-        `/members?${params.toString()}`,
-        { token }
+        `/members?${params.toString()}`
       );
       setMembers(res.data.data);
       setMeta(res.data.meta);
@@ -129,7 +126,7 @@ export default function MembersPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, search, status, page]);
+  }, [search, status, page]);
 
   async function handleDelete(id: number) {
     const confirmed = window.confirm(
@@ -143,7 +140,6 @@ export default function MembersPage() {
     try {
       await api(`/members/${id}`, {
         method: "DELETE",
-        token,
       });
 
       fetchMembers();
@@ -154,7 +150,9 @@ export default function MembersPage() {
   }
 
   useEffect(() => {
-    fetchMembers();
+    let active = true;
+    queueMicrotask(() => { if (active) void fetchMembers(); });
+    return () => { active = false; };
   }, [fetchMembers]);
 
   function handleSearch() {
