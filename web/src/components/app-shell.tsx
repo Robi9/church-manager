@@ -3,10 +3,11 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Church, Users, LogOut, UserPlus, Menu } from "lucide-react";
+import { Users, LogOut, UserPlus, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 
@@ -20,9 +21,20 @@ function NavContent({ pathname, onNavigate }: { pathname: string; onNavigate?: (
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-4 py-5">
-        <Church className="h-6 w-6" />
-        <span className="text-lg font-semibold">Church Manager</span>
+      <div className="px-4 py-4">
+        <div className="relative h-24 w-full">
+          <Image
+            src="/brand/logo-colorida.png"
+            alt="Igreja Betesda Central"
+            fill
+            priority
+            sizes="224px"
+            className="object-contain"
+          />
+        </div>
+        <p className="mt-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-primary">
+          Gestão de membros
+        </p>
       </div>
       <Separator />
       <nav className="flex-1 space-y-1 px-3 py-4">
@@ -74,15 +86,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r bg-card md:block">
+      <aside className="hidden w-64 shrink-0 border-r border-sidebar-border bg-sidebar shadow-[8px_0_30px_rgba(90,42,35,0.05)] md:block">
         <NavContent pathname={pathname} />
       </aside>
 
       {/* Mobile header + sheet */}
       <div className="flex flex-1 flex-col">
-        <header className="flex h-14 items-center gap-2 border-b px-4 md:hidden">
+        <header className="flex h-16 items-center gap-2 border-b border-sidebar-border bg-sidebar px-4 md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" />}>
               <Menu className="h-5 w-5" />
@@ -91,10 +103,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               <NavContent pathname={pathname} onNavigate={() => setOpen(false)} />
             </SheetContent>
           </Sheet>
-          <Church className="h-5 w-5" />
-          <span className="font-semibold">Church Manager</span>
+          <div className="relative h-12 w-36">
+            <Image
+              src="/brand/logo-colorida.png"
+              alt="Igreja Betesda Central"
+              fill
+              priority
+              sizes="144px"
+              className="object-contain"
+            />
+          </div>
         </header>
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

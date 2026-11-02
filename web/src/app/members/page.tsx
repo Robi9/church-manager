@@ -165,7 +165,11 @@ export default function MembersPage() {
   return (
     <div className="min-w-0 space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Membros</h1>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Igreja Betesda Central</p>
+          <h1 className="mt-1 text-3xl font-bold">Membros</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Acompanhe e cuide da comunidade em um só lugar.</p>
+        </div>
 
         <div className="flex flex-wrap gap-2">
           <Button
@@ -184,7 +188,7 @@ export default function MembersPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -218,7 +222,7 @@ export default function MembersPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
