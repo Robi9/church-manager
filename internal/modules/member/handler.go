@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Robi9/church-manager/internal/shared/response"
 	"github.com/gin-gonic/gin"
@@ -25,7 +26,7 @@ type MemberService interface {
 	SoftDelete(int64) error
 	ImportCSV(io.Reader, int64) (ImportResult, error)
 	ConfirmImportDuplicate(string, int, int64) (Member, error)
-	DismissImportDuplicate(string, int) error
+	DismissImportDuplicate(string, int, int64) error
 	GetByID(int64) (Member, error)
 }
 
@@ -211,7 +212,12 @@ func (h *Handler) DismissImportDuplicate(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, errors.New("valid import row is required"))
 		return
 	}
-	if err := h.service.DismissImportDuplicate(c.Param("jobID"), request.Row); err != nil {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		response.Error(c, 401, errors.New("user not authenticated"))
+		return
+	}
+	if err := h.service.DismissImportDuplicate(c.Param("jobID"), request.Row, userID); err != nil {
 		response.Error(c, http.StatusBadRequest, err)
 		return
 	}
@@ -272,7 +278,12 @@ Maria,88999999999,Ativo,2024-01-01,Sim,2024-02-01,Líder,Solteiro,Sede,Batista,S
 func (h *Handler) DownloadImportErrors(c *gin.Context) {
 	jobID := c.Param("jobID")
 
-	job, ok := GetImportJob(jobID)
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		response.Error(c, 401, errors.New("user not authenticated"))
+		return
+	}
+	job, ok := GetImportJob(jobID, userID)
 	if !ok {
 		c.JSON(404, gin.H{
 			"error": "import job not found",
@@ -295,7 +306,7 @@ func (h *Handler) DownloadImportErrors(c *gin.Context) {
 
 	headers := append(job.Headers, "erro")
 
-	err := writer.Write(headers)
+	err = writer.Write(safeCSVRow(headers))
 	if err != nil {
 		return
 	}
@@ -311,7 +322,7 @@ func (h *Handler) DownloadImportErrors(c *gin.Context) {
 			errRow.Error,
 		)
 
-		err := writer.Write(row)
+		err := writer.Write(safeCSVRow(row))
 		if err != nil {
 			return
 		}
@@ -332,4 +343,16 @@ func (h *Handler) GetByID(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, member)
+}
+
+// Spreadsheet applications may execute untrusted cells as formulas.
+func safeCSVRow(row []string) []string {
+	safe := append([]string(nil), row...)
+	for i, cell := range safe {
+		trimmed := strings.TrimLeft(cell, " ")
+		if trimmed != "" && strings.ContainsRune("=+-@\t\r\n", rune(trimmed[0])) {
+			safe[i] = "'" + cell
+		}
+	}
+	return safe
 }

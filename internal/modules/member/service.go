@@ -28,7 +28,7 @@ type ServiceRepository interface {
 }
 
 func (s *Service) ConfirmImportDuplicate(jobID string, row int, userID int64) (Member, error) {
-	importError, claimed := ClaimImportError(jobID, row)
+	importError, claimed := ClaimImportError(jobID, row, userID)
 	if !claimed {
 		return Member{}, errors.New("import row not found or already being processed")
 	}
@@ -76,8 +76,8 @@ func (s *Service) ConfirmImportDuplicate(jobID string, row int, userID int64) (M
 	return created, nil
 }
 
-func (s *Service) DismissImportDuplicate(jobID string, row int) error {
-	importError, claimed := ClaimImportError(jobID, row)
+func (s *Service) DismissImportDuplicate(jobID string, row int, userID int64) error {
+	importError, claimed := ClaimImportError(jobID, row, userID)
 	if !claimed {
 		return errors.New("import row not found or already being processed")
 	}
@@ -160,6 +160,9 @@ type PaginationMeta struct {
 func (s *Service) Find(filters map[string]string, page, limit int) ([]Member, PaginationMeta, error) {
 	if page <= 0 {
 		page = 1
+	}
+	if limit > 100 {
+		limit = 100
 	}
 	if limit <= 0 {
 		limit = 10
@@ -326,6 +329,7 @@ func (s *Service) ImportCSV(file io.Reader, userID int64) (ImportResult, error) 
 		jobID := uuid.NewString()
 		SaveImportJob(ImportJob{
 			ID:        jobID,
+			OwnerID:   userID,
 			CreatedAt: time.Now(),
 			Headers:   headers,
 			ErrorRows: result.Errors,

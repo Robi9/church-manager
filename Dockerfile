@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS build
+FROM golang:1.26.10-alpine AS build
 
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -12,6 +12,7 @@ RUN apk add --no-cache ca-certificates \
     && addgroup -S app \
     && adduser -S -G app app
 WORKDIR /app
+ENV APP_ENV=production GIN_MODE=release
 COPY --from=build /out/api ./api
 COPY migrations ./migrations
 USER app

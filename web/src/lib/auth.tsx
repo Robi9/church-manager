@@ -1,82 +1,49 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
 interface AuthContextType {
-  token: string | null;
-  login: (token: string) => void;
-  logout: () => void;
+  login: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
-
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const TOKEN_KEY = "church_manager_token";
-
-function isTokenValid(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    if (!payload.exp) return false;
-    return payload.exp * 1000 > Date.now();
-  } catch {
-    return false;
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
+  const [isAuthenticated, setAuthenticated] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     let active = true;
-    queueMicrotask(() => {
-      if (!active) return;
-      const stored = localStorage.getItem(TOKEN_KEY);
-      if (stored && isTokenValid(stored)) {
-        setToken(stored);
-      } else {
-        localStorage.removeItem(TOKEN_KEY);
-      }
-      setLoaded(true);
-    });
-    return () => {
-      active = false;
-    };
+    // Remove tokens left behind by the previous authentication mechanism.
+    localStorage.removeItem("church_manager_token");
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => { if (active) setAuthenticated(res.ok); })
+      .catch(() => { if (active) setAuthenticated(false); })
+      .finally(() => { if (active) setLoaded(true); });
+    return () => { active = false; };
   }, []);
 
-  const login = useCallback(
-    (newToken: string) => {
-      localStorage.setItem(TOKEN_KEY, newToken);
-      setToken(newToken);
-      router.push("/members");
-    },
-    [router]
-  );
+  const login = useCallback(() => {
+    setAuthenticated(true);
+    router.push("/members");
+  }, [router]);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken(null);
-    router.push("/login");
+  const logout = useCallback(async () => {
+    try {
+      await api("/auth/logout-all", { method: "POST" });
+      setAuthenticated(false);
+      router.push("/login");
+    } catch {
+      window.alert("Não foi possível encerrar a sessão no servidor. Tente sair novamente.");
+    }
   }, [router]);
 
   if (!loaded) return null;
-
-  return (
-    <AuthContext.Provider
-      value={{ token, login, logout, isAuthenticated: !!token }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ login, logout, isAuthenticated }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

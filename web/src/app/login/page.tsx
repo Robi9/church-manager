@@ -29,11 +29,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await api<{ token: string }>("/auth/login", {
+      await api<{ authenticated: boolean }>("/auth/login", {
         method: "POST",
         body: { email, password },
       });
-      login(res.data.token);
+      login();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

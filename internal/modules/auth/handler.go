@@ -47,11 +47,36 @@ func (h *Handler) Login(c *gin.Context) {
 
 	token, err := h.service.Login(req.Email, req.Password)
 	if err != nil {
-		response.Error(c, http.StatusUnauthorized, err)
+		if err.Error() == "invalid credentials" {
+			response.Error(c, http.StatusUnauthorized, err)
+		} else {
+			response.Error(c, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
 	response.Success(c, http.StatusOK, gin.H{
-		"token": token,
+		"token":      token,
+		"expires_in": int(SessionLifetime.Seconds()),
 	})
+}
+
+func (h *Handler) Me(c *gin.Context) {
+	response.Success(c, http.StatusOK, gin.H{"user_id": c.GetInt64("user_id")})
+}
+
+func (h *Handler) Logout(c *gin.Context) {
+	if err := h.service.repo.RevokeSession(c.Request.Context(), c.GetString("session_hash")); err != nil {
+		response.Error(c, 500, err)
+		return
+	}
+	response.Success(c, 200, gin.H{"message": "signed out"})
+}
+
+func (h *Handler) LogoutAll(c *gin.Context) {
+	if err := h.service.repo.RevokeAllSessions(c.Request.Context(), c.GetInt64("user_id")); err != nil {
+		response.Error(c, 500, err)
+		return
+	}
+	response.Success(c, 200, gin.H{"message": "all sessions revoked"})
 }

@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import { formatBrazilianPhone } from "@/lib/phone";
 import {
@@ -71,7 +70,6 @@ export function MemberForm({
     mode,
     initialData,
 }: MemberFormProps) {
-    const { token } = useAuth();
     const router = useRouter();
     const memberID = initialData?.id;
     const [loading, setLoading] = useState(false);
@@ -146,7 +144,6 @@ export function MemberForm({
                     ...body,
                     exclude_member_id: mode === "edit" ? memberID : undefined,
                 },
-                token,
             });
 
             if (check.data.has_possible_duplicates) {
@@ -168,7 +165,6 @@ export function MemberForm({
             await api("/members", {
                 method: "POST",
                 body: { ...body, force_create: forceCreate },
-                token,
             });
         } else {
             if (!memberID) {
@@ -177,7 +173,6 @@ export function MemberForm({
             await api(`/members/${memberID}`, {
                 method: "PUT",
                 body: { ...body, force_create: forceCreate },
-                token,
             });
         }
         router.push("/members");

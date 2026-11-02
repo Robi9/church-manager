@@ -2,6 +2,7 @@ package member
 
 import (
 	"sync"
+	"time"
 )
 
 var (
@@ -10,28 +11,70 @@ var (
 	importJobsMu sync.RWMutex
 )
 
+const importJobTTL = 30 * time.Minute
+const maxImportJobs = 20
+
+func init() {
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for now := range ticker.C {
+			importJobsMu.Lock()
+			cleanupImportJobs(now)
+			importJobsMu.Unlock()
+		}
+	}()
+}
+
+// Caller holds importJobsMu.
+func cleanupImportJobs(now time.Time) {
+	for id, job := range importJobs {
+		if !now.Before(job.CreatedAt.Add(importJobTTL)) {
+			delete(importJobs, id)
+			delete(importClaims, id)
+		}
+	}
+}
+
 func SaveImportJob(job ImportJob) {
 	importJobsMu.Lock()
 	defer importJobsMu.Unlock()
 
+	if job.CreatedAt.IsZero() {
+		job.CreatedAt = time.Now()
+	}
+	cleanupImportJobs(time.Now())
+	if len(importJobs) >= maxImportJobs {
+		var oldest string
+		for id, existing := range importJobs {
+			if oldest == "" || existing.CreatedAt.Before(importJobs[oldest].CreatedAt) {
+				oldest = id
+			}
+		}
+		delete(importJobs, oldest)
+		delete(importClaims, oldest)
+	}
 	importJobs[job.ID] = job
 	delete(importClaims, job.ID)
 }
 
-func GetImportJob(id string) (ImportJob, bool) {
+func GetImportJob(id string, ownerID int64) (ImportJob, bool) {
 	importJobsMu.RLock()
 	defer importJobsMu.RUnlock()
 
 	job, ok := importJobs[id]
-	return job, ok
+	if !ok || job.OwnerID != ownerID || !time.Now().Before(job.CreatedAt.Add(importJobTTL)) {
+		return ImportJob{}, false
+	}
+	return job, true
 }
 
-func ClaimImportError(jobID string, row int) (ImportError, bool) {
+func ClaimImportError(jobID string, row int, ownerID int64) (ImportError, bool) {
 	importJobsMu.Lock()
 	defer importJobsMu.Unlock()
 
 	job, exists := importJobs[jobID]
-	if !exists {
+	if !exists || job.OwnerID != ownerID || !time.Now().Before(job.CreatedAt.Add(importJobTTL)) {
 		return ImportError{}, false
 	}
 	if importClaims[jobID] == nil {
