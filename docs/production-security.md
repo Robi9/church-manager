@@ -1,32 +1,36 @@
-# Segurança antes dos dados reais
+# Security before adding real data
 
-## Publicação desta mudança
+## Deploying this change
 
-1. Publique primeiro a API. A migração `000008` cria sessões e o bloqueio de conta.
-   A API aplica as migrações na inicialização. Tokens JWT anteriores deixam de funcionar.
-2. No frontend, configure **API_URL** no ambiente do servidor com a URL HTTPS da API,
-   terminando em `/api`. A configuração anterior `NEXT_PUBLIC_API_URL` continua sendo
-   aceita como transição. O navegador passa a chamar apenas `/api` do próprio frontend.
-3. Publique o frontend e entre novamente. Confira login, busca, edição, importação,
-   download de erros e logout pelo domínio HTTPS definitivo. Deploys de preview
-   devem usar uma API e banco de teste, sem dados reais.
-4. A sessão tem duração absoluta de duas horas. Sair revoga **todas as sessões da
-   conta no banco**, e só informa sucesso após confirmação da API. Nenhum token
-   novo fica acessível ao JavaScript. O cookie é HttpOnly, Secure e SameSite=Lax
-   em produção, sem Domain. Mutações exigem Origin igual à origem do frontend.
-5. O backend exige `APP_ENV=production`, um `JWT_SECRET` aleatório de pelo menos
-   32 caracteres, origens HTTPS explícitas, cadastro público desativado e TLS no
-   PostgreSQL. `JWT_SECRET` agora protege os hashes das sessões: sua rotação
-   invalida todas elas. Use `openssl rand -base64 48` para gerar um novo segredo.
-6. Remova `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` da hospedagem depois
-   da criação da conta inicial. A senha inicial deve ser exclusiva e forte.
+1. Deploy the API first. Migration `000008` creates sessions and adds account
+   disabling. The API applies migrations at startup. Previous JWT tokens are no
+   longer accepted.
+2. In the frontend server environment, set **API_URL** to the API's HTTPS URL,
+   ending in `/api`. The previous `NEXT_PUBLIC_API_URL` setting remains supported
+   during the transition. The browser now calls only the frontend's own `/api`.
+3. Deploy the frontend and sign in again. Check login, search, editing, imports,
+   error report downloads, and logout on the final HTTPS domain. Preview deploys
+   must use a test API and database without real data.
+4. Sessions have an absolute lifetime of two hours. Signing out revokes **all
+   sessions for the account in the database** and reports success only after API
+   confirmation. New tokens are never exposed to JavaScript. In production, the
+   cookie uses HttpOnly, Secure, and SameSite=Lax, without a Domain attribute.
+   Mutations require an Origin matching the frontend's origin.
+5. The backend requires `APP_ENV=production`, a random `JWT_SECRET` of at least
+   32 characters, explicit HTTPS origins, disabled public registration, and TLS
+   for PostgreSQL. `JWT_SECRET` now protects session hashes: rotating it
+   invalidates all sessions. Use `openssl rand -base64 48` to generate a new secret.
+6. Remove `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD` from the hosting
+   environment after creating the initial account. Use a strong, unique initial
+   password.
 
-O nome da variável JWT_SECRET foi mantido para compatibilidade de implantação;
-JWTs não são mais usados. Não há mudança nos perfis de acesso aos membros.
+The JWT_SECRET variable name was retained for deployment compatibility; JWTs are
+no longer used. Member access permissions are unchanged.
 
-## Bloqueio emergencial da conta
+## Emergency account disabling
 
-Em uma conexão administrativa protegida, use parâmetros para selecionar a conta:
+In a protected administrative connection, target the intended account. The
+following example uses account ID `1`; replace it with the actual account ID:
 
 ```sql
 BEGIN;
@@ -35,123 +39,129 @@ DELETE FROM sessions WHERE user_id = 1;
 COMMIT;
 ```
 
-Para reativar após investigar o incidente, remova `disabled_at`. A pessoa precisa
-entrar novamente. Alterações em `users.updated_at` também invalidam sessões
-anteriores; ao alterar uma senha, atualize esse campo e remova as sessões.
-Não há tela de administração de contas nesta mudança.
+To reactivate the account after investigating the incident, set `disabled_at` to
+NULL. The user must sign in again. Changes to `users.updated_at` also invalidate
+previous sessions; when changing a password, update this field and delete the
+account's sessions. This change does not include an account administration screen.
 
-## Importações e registros
+## Imports and logs
 
-Os resultados temporários de importação pertencem ao usuário que enviou o CSV.
-Expiram em 30 minutos e são removidos da memória na limpeza a cada minuto.
-O limite é de 20 relatórios por processo; atingir o limite remove o mais antigo.
-Reiniciar a API também remove os relatórios; use uma instância enquanto o
-armazenamento for local em memória. Os membros já importados continuam no banco.
+Temporary import results belong to the user who uploaded the CSV. They expire
+after 30 minutes and are removed from memory by cleanup running every minute.
+Each process retains at most 20 reports; reaching the limit evicts the oldest.
+Restarting the API also removes reports. Use one instance while storage remains
+local to the process. Members already imported remain in the database.
 
-A API não registra URLs de busca automaticamente e não devolve erros internos
-ou do banco. Os registros de falha contêm método, padrão da rota e tipo do erro,
-sem seu conteúdo. Confira também os logs e ferramentas de observabilidade da
-hospedagem: não capture corpos de requisição/resposta, cookies, Authorization
-ou parâmetros de busca com nomes e telefones. Não copie dados reais para testes.
+The API does not automatically log search URLs or return internal or database
+errors. Failure logs include the method, route pattern, and error type, without
+the error contents. Also check the hosting provider's logs and observability
+tools: do not capture request or response bodies, cookies, Authorization headers,
+or search parameters containing names and phone numbers. Do not copy real data
+into test environments.
 
-## Backup criptografado e recuperação
+## Encrypted backups and recovery
 
-O repositório fornece `scripts/backup-database.sh`. Ele **não agenda backups**
-nem altera serviços de hospedagem. Requer `pg_dump` compatível com a versão do
-servidor e [age](https://age-encryption.org/). Configure um serviço libpq fora
-do repositório e proteja o arquivo de credenciais com permissão `0600`:
+The repository provides `scripts/backup-database.sh`. It **does not schedule
+backups** or change hosting services. It requires `pg_dump` compatible with the
+server version and [age](https://age-encryption.org/). Configure a libpq service
+outside the repository and protect the credentials file with mode `0600`:
 
 ```ini
 [church_backup]
-host=SEU_HOST
+host=YOUR_HOST
 port=5432
-dbname=SEU_BANCO
-user=USUARIO_DE_BACKUP
-password=SENHA
+dbname=YOUR_DATABASE
+user=BACKUP_USER
+password=PASSWORD
 sslmode=verify-full
 ```
 
-Use um usuário de backup que possa ler as tabelas necessárias, sem permissão de
-alteração. Use credenciais diferentes na API e nas migrações quando a hospedagem
-permitir; atualmente a API aplica migrações e exige permissões de alteração de schema.
+Use a backup user that can read the required tables without modifying them. Use
+separate API and migration credentials when the hosting setup permits it;
+currently, the API applies migrations and requires schema modification privileges.
 
-Gere uma chave age em uma máquina protegida com `age-keygen -o backup-key.txt`.
-Guarde a chave privada separada dos backups, fora do repositório e da hospedagem
-da aplicação. Configure **somente a chave pública** no job de backup:
+Generate an age key on a protected machine with `age-keygen -o backup-key.txt`.
+Keep the private key separate from backups, outside the repository and the
+application's hosting environment. Configure **only the public recipient** in
+the backup job:
 
 ```bash
 PGSERVICE=church_backup \
-PGSERVICEFILE=/caminho/protegido/pg_service.conf \
-BACKUP_RECIPIENT=age1CHAVE_PUBLICA \
-BACKUP_DIR=/caminho/protegido/backups \
+PGSERVICEFILE=/protected/path/pg_service.conf \
+BACKUP_RECIPIENT=age1PUBLIC_RECIPIENT \
+BACKUP_DIR=/protected/path/backups \
 ./scripts/backup-database.sh
 ```
 
-O dump passa diretamente para a criptografia, sem arquivo intermediário aberto.
-Sessões ativas são excluídas do dump para evitar sua reativação após restauração.
-Agende a execução diária em um ambiente protegido e envie os arquivos criptografados
-para armazenamento separado, com acesso restrito, retenção definida e alerta de falha.
-O intervalo deve corresponder à perda de dados aceitável. Confira também as opções
-de backup e recuperação do plano efetivamente contratado no provedor do banco.
+The dump streams directly into encryption without an intermediate plaintext
+file. Active sessions are excluded to prevent their reactivation after a restore.
+Schedule daily backups in a protected environment and upload the encrypted files
+to separate storage with restricted access, a defined retention period, and
+failure alerts. Choose a backup interval that matches the acceptable data loss.
+Also check the backup and recovery options of the database provider's actual plan.
 
-**Antes de inserir dados reais**, restaure um backup em um banco vazio e isolado
-com a mesma versão principal do PostgreSQL, sem conexões da aplicação. Use um
-serviço libpq `church_restore_test` apontando exclusivamente para esse banco:
+**Before adding real data**, restore a backup into an empty, isolated database
+using the same PostgreSQL major version, without application connections. Point
+a libpq service named `church_restore_test` exclusively at that database:
 
 ```bash
 set -o pipefail
-age --decrypt --identity /caminho/protegido/backup-key.txt /backups/ARQUIVO.age \
+age --decrypt --identity /protected/path/backup-key.txt /backups/FILE.age \
   | pg_restore --dbname=service=church_restore_test --exit-on-error --single-transaction --no-owner --no-acl
 ```
 
-Verifique contagens e registros conhecidos, constraints e ausência de sessões.
-Apague o banco de restauração após o teste. Um arquivo criado com sucesso, sozinho,
-não comprova que a recuperação funciona. Repita o teste periodicamente.
+Verify row counts, known records, constraints, and the absence of sessions.
+Delete the restore database after testing. Successfully creating a backup file
+alone does not prove that recovery works. Repeat the restore test periodically.
 
-## Conferências na hospedagem
+## Hosting checks
 
-- Ative MFA nas contas do repositório, frontend, API e banco; evite contas compartilhadas.
-- Confirme HTTPS, TLS do banco, proteção dos segredos, acesso administrativo mínimo
-  e ausência de credenciais de produção em previews. Não coloque segredos em `NEXT_PUBLIC_*`.
-- Confira se logs de acesso do provedor preservam nomes em query strings; restrinja
-  acesso e retenção e configure a remoção desses parâmetros quando disponível.
-- Teste a API sem autenticação: membros e dashboard devem retornar 401; cadastro público, 404.
-- Após logout, reutilizar o token anterior na API deve retornar 401.
-- Confirme falhas de login, erros e alertas sem registrar dados pessoais.
+- Enable MFA for repository, frontend, API, and database accounts; avoid shared
+  accounts.
+- Verify HTTPS, database TLS, secret protection, minimal administrative access,
+  and the absence of production credentials in previews. Never put secrets in
+  `NEXT_PUBLIC_*` variables.
+- Check whether provider access logs retain names in query strings. Restrict
+  access and retention, and configure parameter removal where available.
+- Test the API without authentication: member and dashboard endpoints must
+  return 401; public registration must return 404.
+- After logout, reusing the previous token against the API must return 401.
+- Verify login failures, errors, and alerts without logging personal data.
 
-Estas configurações externas precisam ser aplicadas e verificadas nas contas de
-hospedagem. O código local não comprova MFA, backups agendados ou a configuração
-atual dos serviços em produção.
+These external settings must be applied and verified in the hosting accounts.
+Local code does not verify MFA, scheduled backups, or the current configuration
+of production services.
 
-## Verificação automatizada
+## Automated verification
 
-O CI testa sessões contra PostgreSQL descartável, executa os testes de proteção
-contra CSRF e verifica vulnerabilidades com `govulncheck` e `npm audit`.
-Localmente: `go test ./...`, `go vet ./...` e, em `web/`,
-`npm run test:security`, `npm run lint` e `npm run build`.
-O teste de integração também exige `TEST_DATABASE_URL` apontando para um banco
-**local** migrado cujo nome termine em `_security_test`.
+CI tests sessions against disposable PostgreSQL, runs CSRF protection tests, and
+checks vulnerabilities with `govulncheck` and `npm audit`. Locally, run
+`go test ./...`, `go vet ./...`, and, from `web/`, `npm run test:security`,
+`npm run lint`, and `npm run build`. Integration tests also require
+`TEST_DATABASE_URL` pointing to a migrated **local** database whose name ends in
+`_security_test`.
 
-A atualização de segurança inclui Go 1.26.10 e Next.js 16.4.4. Os utilitários
-CSS usados dos componentes shadcn foram preservados localmente com sua licença;
-a ferramenta de geração deixou de ser uma dependência da aplicação.
+The security update includes Go 1.26.10 and Next.js 16.4.4. The shadcn component
+CSS utilities were preserved locally with their license; the generation tool is
+no longer an application dependency.
 
-### Resultado da validação local em 02/11/2026
+### Local validation results on November 2, 2026
 
-- Migrações aplicadas em PostgreSQL descartável; migração de sessões também
-  revertida e reaplicada antes do teste.
-- Login, logout individual e global, expiração e bloqueio de conta testados
-  contra PostgreSQL real, sem usar dados de produção.
-- Backup age criado pelo script e restaurado em outro banco vazio; registro
-  fictício recuperado e tabela de sessões vazia, como esperado.
-- Testes de cookie HttpOnly/Secure, proteção de origem/CSRF, rotas permitidas
-  e limite de upload aprovados; lint, TypeScript e build de produção aprovados.
-- `npm audit --omit=dev`: zero vulnerabilidades. A auditoria incluindo ferramentas
-  de desenvolvimento ainda informa 16 alertas moderados relacionados a minimatch
-  na cadeia do ESLint. Não foi forçada uma troca incompatível dessas ferramentas.
-- `govulncheck`: zero vulnerabilidades alcançáveis e zero nos pacotes importados.
-  O módulo x/crypto ainda tem um aviso em código não importado pela aplicação
-  (GO-2026-5932), sem correção indicada na consulta. Isso não equivale a uma
-  garantia contra falhas desconhecidas.
+- Migrations were applied to disposable PostgreSQL; the session migration was
+  also rolled back and reapplied before testing.
+- Login, individual and global logout, expiration, and account disabling were
+  tested against real PostgreSQL without using production data.
+- An age backup was created by the script and restored into another empty
+  database; the fictitious record was recovered and the sessions table was empty,
+  as expected.
+- HttpOnly/Secure cookie, origin/CSRF protection, allowed route, and upload limit
+  tests passed; lint, TypeScript checks, and the production build passed.
+- `npm audit --omit=dev`: zero vulnerabilities. The audit including development
+  tools still reported 16 moderate alerts related to minimatch in the ESLint
+  dependency chain. An incompatible replacement of these tools was not forced.
+- `govulncheck`: zero reachable vulnerabilities and zero in imported packages.
+  The x/crypto module still had an advisory affecting code not imported by the
+  application (GO-2026-5932), with no fix listed at the time of the check. This
+  does not guarantee protection against unknown vulnerabilities.
 
-Nenhuma configuração dos serviços de produção foi alterada nesta execução.
+No production service settings were changed during this validation.
